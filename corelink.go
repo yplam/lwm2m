@@ -1,4 +1,4 @@
-package device
+package lwm2m
 
 import (
 	"regexp"

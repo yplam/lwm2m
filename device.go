@@ -1,20 +1,20 @@
-package device
+package lwm2m
 
 import (
+	"context"
 	"errors"
+	"github.com/plgd-dev/go-coap/v2/message"
 	"github.com/plgd-dev/go-coap/v2/mux"
+	"log"
 	"math/rand"
 	"sync"
-	"time"
 )
 
-type Store interface {
-}
-
-type Manager struct {
+type DeviceManager struct {
 	lock    sync.RWMutex
 	devices map[string]*Device
 	epToID  map[string]string
+	ctx     context.Context
 }
 
 type Device struct {
@@ -28,7 +28,7 @@ type Device struct {
 	Sms       string
 }
 
-func (m *Manager) DeRegister(id string) error {
+func (m *DeviceManager) DeRegister(id string) error {
 	old := m.GetByID(id)
 	if old == nil {
 		return errors.New("device not found")
@@ -40,7 +40,7 @@ func (m *Manager) DeRegister(id string) error {
 	return nil
 }
 
-func (m *Manager) Register(ep string, lifetime int, version string, binding string,
+func (m *DeviceManager) Register(ep string, lifetime int, version string, binding string,
 	sms string, links []*CoreLink, client mux.Client) (*Device, error) {
 	if id, err := m.GetIdByEndpoint(ep); err == nil {
 		_ = m.DeRegister(id)
@@ -62,10 +62,60 @@ func (m *Manager) Register(ep string, lifetime int, version string, binding stri
 	return d, nil
 }
 
-func (m *Manager) Update(id string, lifetime int, binding string, sms string,
+func (m *DeviceManager) PostRegister(id string) {
+	d := m.GetByID(id)
+	if d == nil {
+		return
+	}
+	log.Println("after device register")
+	for k, v := range d.CoreLinks {
+		log.Printf("link: %#v, %#v", k, v)
+	}
+	buf := make([]byte ,2)
+	l, err := message.EncodeUint32(buf, uint32(message.AppLinkFormat))
+	if err != nil {
+		return
+	}
+	nm, err := d.Client.Get(m.ctx, "3303/0",
+		message.Option{
+			ID:    message.Accept,
+			Value: buf[:l],
+		})
+	log.Printf("%#v, %#v", nm, err)
+	l, err = message.EncodeUint32(buf, uint32(message.AppLwm2mTLV))
+	if err != nil {
+		return
+	}
+	nm, err = d.Client.Get(m.ctx, "3/0",
+		message.Option{
+			ID:    message.Accept,
+			Value: buf[:l],
+		})
+	log.Printf("%#v, %#v", nm, err)
+	nm, err = d.Client.Get(m.ctx, "3303",
+		message.Option{
+			ID:    message.Accept,
+			Value: buf[:l],
+		})
+	log.Printf("%#v, %#v", nm.Body, err)
+	nm, err = d.Client.Get(m.ctx, "3303/0",
+		message.Option{
+			ID:    message.Accept,
+			Value: buf[:l],
+		})
+	log.Printf("%#v, %#v", nm, err)
+	nm, err = d.Client.Get(m.ctx, "3303/0/5700",
+		message.Option{
+			ID:    message.Accept,
+			Value: buf[:l],
+		})
+	log.Printf("%#v, %#v", nm, err)
+}
+
+func (m *DeviceManager) Update(id string, lifetime int, binding string, sms string,
 	links []*CoreLink) error {
 	d, ok := m.devices[id]
-	if  !ok {
+	if !ok {
 		return errors.New("device not found")
 	}
 	if lifetime > 0 {
@@ -85,7 +135,7 @@ func (m *Manager) Update(id string, lifetime int, binding string, sms string,
 
 const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
-func (m *Manager) generateRegId() string {
+func (m *DeviceManager) generateRegId() string {
 	for {
 		b := make([]byte, 5)
 		for i := range b {
@@ -97,7 +147,7 @@ func (m *Manager) generateRegId() string {
 	}
 }
 
-func (m *Manager) GetIdByEndpoint(ep string) (string, error) {
+func (m *DeviceManager) GetIdByEndpoint(ep string) (string, error) {
 	m.lock.RLock()
 	defer m.lock.RUnlock()
 	if id, ok := m.epToID[ep]; ok {
@@ -106,7 +156,7 @@ func (m *Manager) GetIdByEndpoint(ep string) (string, error) {
 	return "", errors.New("id not found")
 }
 
-func (m *Manager) GetByID(id string) *Device {
+func (m *DeviceManager) GetByID(id string) *Device {
 	m.lock.RLock()
 	defer m.lock.RUnlock()
 	if d, ok := m.devices[id]; ok {
@@ -115,13 +165,12 @@ func (m *Manager) GetByID(id string) *Device {
 	return nil
 }
 
-func NewManager() *Manager {
-	return &Manager{
+func NewManager(ctx context.Context) *DeviceManager {
+	return &DeviceManager{
+		ctx: ctx,
 		devices: make(map[string]*Device),
 		epToID:  make(map[string]string),
 	}
 }
 
-func init() {
-	rand.Seed(time.Now().UnixNano())
-}
+

@@ -8,15 +8,11 @@ import (
 	"github.com/plgd-dev/go-coap/v2/mux"
 	"github.com/plgd-dev/go-coap/v2/net"
 	"github.com/plgd-dev/go-coap/v2/udp/client"
-	"lwm2m/coap"
-	"lwm2m/device"
-	"lwm2m/dtls"
-	"lwm2m/store"
 )
 
 var defaultServerOptions = serverOptions{
 	ctx:   context.Background(),
-	store: store.NewDummy(),
+	store: NewDummy(),
 }
 
 type ServerOption interface {
@@ -24,7 +20,8 @@ type ServerOption interface {
 }
 
 type Store interface {
-	dtls.Store
+	PSKIdentityFromEP([]byte) ([]byte, error)
+	PSKFromIdentity([]byte) ([]byte, error)
 }
 
 type serverOptions struct {
@@ -38,8 +35,8 @@ type Server struct {
 	loggerFactory logging.LoggerFactory
 	router        *mux.Router
 	store         Store
-	DeviceManage  *device.Manager
-	reg           *coap.Registration
+	DeviceManage  *DeviceManager
+	reg           *Registration
 }
 
 // Stop stops server without wait of ends Serve function.
@@ -48,7 +45,7 @@ func (s *Server) Stop() {
 }
 
 func (s *Server) ListenAndServeDTLS(network string, addr string) error {
-	ds := dtls.NewServer(s.store)
+	ds := NewDTLSServer(s.store)
 	dtlsConfig := piondtls.Config{
 		CipherSuites:         []piondtls.CipherSuiteID{piondtls.TLS_PSK_WITH_AES_128_CCM_8},
 		ExtendedMasterSecret: piondtls.DisableExtendedMasterSecret,
@@ -87,9 +84,9 @@ func NewServer(opt ...ServerOption) *Server {
 	loggerFactory := logging.NewDefaultLoggerFactory()
 	loggerFactory.DefaultLogLevel = logging.LogLevelDebug
 
-	dm := device.NewManager()
+	dm := NewManager(ctx)
 	m := mux.NewRouter()
-	reg := coap.NewRegistration(dm)
+	reg := NewRegistration(dm)
 	_ = m.Handle("/rd", reg)
 	_ = m.Handle("/rd/", reg)
 

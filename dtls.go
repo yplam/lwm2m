@@ -1,4 +1,4 @@
-package dtls
+package lwm2m
 
 import (
 	"bytes"
@@ -12,24 +12,19 @@ const (
 )
 
 
-type Store interface {
-	PSKFromIdentity([]byte) ([]byte, error)
-	PSKIdentityFromEP([]byte) ([]byte, error)
-}
-
-type Server struct {
+type DTLSServer struct {
 	store Store
 }
 
-func (s *Server) PSK(id []byte) ([]byte, error) {
+func (s *DTLSServer) PSK(id []byte) ([]byte, error) {
 	return s.store.PSKFromIdentity(id)
 }
 
-func (s *Server) OnNewClientConn(cc *client.ClientConn, dtlsConn *piondtls.Conn) {
+func (s *DTLSServer) OnNewClientConn(cc *client.ClientConn, dtlsConn *piondtls.Conn) {
 	cc.SetContextValue(PSK_ID_HINT, dtlsConn.ConnectionState().IdentityHint)
 }
 
-func (s *Server) ValidateClientConn(cc *client.ClientConn, ep string) error {
+func (s *DTLSServer) ValidateClientConn(cc *client.ClientConn, ep string) error {
 	hi := cc.Context().Value(PSK_ID_HINT).([]byte)
 	ehi, err := s.store.PSKIdentityFromEP([]byte(ep))
 	if err != nil {
@@ -41,8 +36,8 @@ func (s *Server) ValidateClientConn(cc *client.ClientConn, ep string) error {
 	return nil
 }
 
-func NewServer(s Store) *Server {
-	return &Server{
+func NewDTLSServer(s Store) *DTLSServer {
+	return &DTLSServer{
 		store: s,
 	}
 }

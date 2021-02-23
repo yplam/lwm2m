@@ -1,4 +1,4 @@
-package store
+package lwm2m
 
 import (
 	"fmt"

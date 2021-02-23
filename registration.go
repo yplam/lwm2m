@@ -1,4 +1,4 @@
-package coap
+package lwm2m
 
 import (
 	"github.com/plgd-dev/go-coap/v2/message"
@@ -7,21 +7,16 @@ import (
 	"github.com/plgd-dev/go-coap/v2/udp/client"
 	"io/ioutil"
 	"log"
-	"lwm2m/device"
 	"strconv"
 	"strings"
 	"time"
 )
 
-type Store interface {
-	PSKIdentityFromEP([]byte) ([]byte, error)
-}
-
 type ValidateClientConnCallback func(cc *client.ClientConn, ep string) error
 
 
 type Registration struct {
-	m                  *device.Manager
+	m                  *DeviceManager
 	ValidateClientConn ValidateClientConnCallback
 }
 
@@ -101,10 +96,10 @@ func (r *Registration) handleRegistration(w mux.ResponseWriter, m *mux.Message) 
 			return
 		}
 	}
-	var links []*device.CoreLink
+	var links []*CoreLink
 	if m.Body != nil {
 		if b, err := ioutil.ReadAll(m.Body); err == nil {
-			links = device.CoreLinksFromString(string(b))
+			links = CoreLinksFromString(string(b))
 		}
 	}
 	d, err := r.m.Register(endpoint, lifetime, version, binding, smsNumber, links, w.Client())
@@ -113,9 +108,11 @@ func (r *Registration) handleRegistration(w mux.ResponseWriter, m *mux.Message) 
 		return
 	}
 	log.Printf("%v, %v, %v", endpoint, lifetime, version)
-	_ = w.SetResponse(codes.Created, message.TextPlain, nil,
+	if err = w.SetResponse(codes.Created, message.TextPlain, nil,
 		message.Option{ID: message.LocationPath, Value: []byte("rd")},
-		message.Option{ID: message.LocationPath, Value: []byte(d.ID)})
+		message.Option{ID: message.LocationPath, Value: []byte(d.ID)}); err == nil {
+		r.m.PostRegister(d.ID)
+	}
 }
 
 func (r *Registration) handleUpdate(w mux.ResponseWriter, m *mux.Message, id string) {
@@ -149,10 +146,10 @@ func (r *Registration) handleUpdate(w mux.ResponseWriter, m *mux.Message, id str
 		r.handleBadRequest(w)
 		return
 	}
-	var links []*device.CoreLink
+	var links []*CoreLink
 	if m.Body != nil {
 		if b, err := ioutil.ReadAll(m.Body); err == nil {
-			links = device.CoreLinksFromString(string(b))
+			links = CoreLinksFromString(string(b))
 		}
 	}
 	err = r.m.Update(id, lifetime, binding, smsNumber, links)
@@ -181,7 +178,7 @@ func (r *Registration) handleDelete(w mux.ResponseWriter, m *mux.Message, id str
 	}()
 }
 
-func NewRegistration(m *device.Manager) *Registration {
+func NewRegistration(m *DeviceManager) *Registration {
 	return &Registration{
 		m: m,
 	}
