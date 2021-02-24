@@ -6,7 +6,7 @@ import (
 )
 
 
-func TestLinksFromString(t *testing.T) {
+func TestCoreLinksFromString(t *testing.T) {
 	var links []*CoreLink
 
 	links = CoreLinksFromString("</>;rt=\"oma.lwm2m\";ct=11543,</1/0>,</3/0>,</5/0>,</3303/0>,</3300>,</3304>,</3323>,</3311>,</3340>,</3342>,</3347>")
