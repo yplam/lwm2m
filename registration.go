@@ -16,7 +16,7 @@ type ValidateClientConnCallback func(cc *client.ClientConn, ep string) error
 
 
 type Registration struct {
-	m                  *DeviceManager
+	s                  *Server
 	ValidateClientConn ValidateClientConnCallback
 }
 
@@ -96,13 +96,13 @@ func (r *Registration) handleRegistration(w mux.ResponseWriter, m *mux.Message) 
 			return
 		}
 	}
-	var links []*CoreLink
+	var links []*coreLink
 	if m.Body != nil {
 		if b, err := ioutil.ReadAll(m.Body); err == nil {
-			links = CoreLinksFromString(string(b))
+			links = coreLinksFromString(string(b))
 		}
 	}
-	d, err := r.m.Register(endpoint, lifetime, version, binding, smsNumber, links, w.Client())
+	d, err := r.s.Register(endpoint, lifetime, version, binding, smsNumber, links, w.Client())
 	if err != nil {
 		r.handleBadRequest(w)
 		return
@@ -111,7 +111,7 @@ func (r *Registration) handleRegistration(w mux.ResponseWriter, m *mux.Message) 
 	if err = w.SetResponse(codes.Created, message.TextPlain, nil,
 		message.Option{ID: message.LocationPath, Value: []byte("rd")},
 		message.Option{ID: message.LocationPath, Value: []byte(d.ID)}); err == nil {
-		r.m.PostRegister(d.ID)
+		r.s.PostRegister(d.ID)
 	}
 }
 
@@ -146,28 +146,30 @@ func (r *Registration) handleUpdate(w mux.ResponseWriter, m *mux.Message, id str
 		r.handleBadRequest(w)
 		return
 	}
-	var links []*CoreLink
+	var links []*coreLink
 	if m.Body != nil {
 		if b, err := ioutil.ReadAll(m.Body); err == nil {
-			links = CoreLinksFromString(string(b))
+			links = coreLinksFromString(string(b))
 		}
 	}
-	err = r.m.Update(id, lifetime, binding, smsNumber, links)
+	err = r.s.Update(id, lifetime, binding, smsNumber, links)
 	if err != nil {
 		_ = w.SetResponse(codes.NotFound, message.TextPlain, nil)
 		return
 	}
-	_ = w.SetResponse(codes.Changed, message.TextPlain, nil)
+	if err = w.SetResponse(codes.Changed, message.TextPlain, nil); err == nil {
+		r.s.PostUpdate(id)
+	}
 }
 
 func (r *Registration) handleDelete(w mux.ResponseWriter, m *mux.Message, id string) {
-	d := r.m.GetByID(id)
+	d := r.s.GetByID(id)
 	if d == nil {
 		_ = w.SetResponse(codes.NotFound, message.TextPlain, nil)
 	} else {
 		_ = w.SetResponse(codes.Deleted, message.TextPlain, nil)
 	}
-	_ = r.m.DeRegister(id)
+	_ = r.s.DeRegister(id)
 	go func() {
 		time.Sleep(5)
 		if c := w.Client(); c != nil {
@@ -178,8 +180,8 @@ func (r *Registration) handleDelete(w mux.ResponseWriter, m *mux.Message, id str
 	}()
 }
 
-func NewRegistration(m *DeviceManager) *Registration {
+func NewRegistration(s *Server) *Registration {
 	return &Registration{
-		m: m,
+		s: s,
 	}
 }

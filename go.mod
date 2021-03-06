@@ -1,6 +1,6 @@
 module lwm2m
 
-go 1.15
+go 1.16
 
 require (
 	github.com/pion/dtls/v2 v2.0.4

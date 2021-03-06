@@ -12,21 +12,21 @@ const (
 )
 
 
-type DTLSServer struct {
+type DTLSConnector struct {
 	store Store
 }
 
-func (s *DTLSServer) PSK(id []byte) ([]byte, error) {
-	return s.store.PSKFromIdentity(id)
+func (c *DTLSConnector) PSK(id []byte) ([]byte, error) {
+	return c.store.PSKFromIdentity(id)
 }
 
-func (s *DTLSServer) OnNewClientConn(cc *client.ClientConn, dtlsConn *piondtls.Conn) {
+func (c *DTLSConnector) OnNewClientConn(cc *client.ClientConn, dtlsConn *piondtls.Conn) {
 	cc.SetContextValue(PSK_ID_HINT, dtlsConn.ConnectionState().IdentityHint)
 }
 
-func (s *DTLSServer) ValidateClientConn(cc *client.ClientConn, ep string) error {
+func (c *DTLSConnector) ValidateClientConn(cc *client.ClientConn, ep string) error {
 	hi := cc.Context().Value(PSK_ID_HINT).([]byte)
-	ehi, err := s.store.PSKIdentityFromEP([]byte(ep))
+	ehi, err := c.store.PSKIdentityFromEP([]byte(ep))
 	if err != nil {
 		return err
 	}
@@ -36,8 +36,8 @@ func (s *DTLSServer) ValidateClientConn(cc *client.ClientConn, ep string) error 
 	return nil
 }
 
-func NewDTLSServer(s Store) *DTLSServer {
-	return &DTLSServer{
+func NewDTLSConnector(s Store) *DTLSConnector {
+	return &DTLSConnector{
 		store: s,
 	}
 }

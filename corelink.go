@@ -5,19 +5,19 @@ import (
 	"strings"
 )
 
-type CoreLink struct {
-	URI string
-	Params map[string]interface{}
+type coreLink struct {
+	uri string
+	params map[string]string
 }
 
-func NewCoreLink() *CoreLink {
-	return &CoreLink{
-		Params: make(map[string]interface{}),
+func newcoreLink() *coreLink {
+	return &coreLink{
+		params: make(map[string]string),
 	}
 }
 
-func (l *CoreLink) SetParam(key string, val interface{})  {
-	l.Params[key] = val
+func (l *coreLink) SetParam(key string, val string)  {
+	l.params[key] = val
 }
 
 //    Link            = link-value-list
@@ -66,23 +66,23 @@ func (l *CoreLink) SetParam(key string, val interface{})  {
 //    ext-value      = <defined in [RFC5987]>
 //    parmname       = <defined in [RFC5987]>
 
-func CoreLinksFromString(s string) []*CoreLink {
+func coreLinksFromString(s string) []*coreLink {
 
 	var re = regexp.MustCompile(`(<[^>]+>\s*(;\s*\w+\s*(=\s*(\w+|"([^"\\]*(\\.[^"\\]*)*)")\s*)?)*)`)
 	var elemRe = regexp.MustCompile(`<[^>]*>`)
 
-	var links []*CoreLink
+	var links []*coreLink
 	m := re.FindAllString(s, -1)
 
 	for _, match := range m {
 		elemMatch := elemRe.FindString(match)
-		l := NewCoreLink()
-		l.URI = elemMatch[1 : len(elemMatch)-1]
+		l := newcoreLink()
+		l.uri = elemMatch[1 : len(elemMatch)-1]
 		if len(match) > len(elemMatch) {
 			attrs := strings.Split(match[len(elemMatch)+1:], ";")
 			for _, attr := range attrs {
 				pair := strings.Split(attr, "=")
-				l.Params[pair[0]] = strings.Replace(pair[1], "\"", "", -1)
+				l.params[pair[0]] = strings.Replace(pair[1], "\"", "", -1)
 			}
 		}
 		links = append(links, l)
