@@ -1,4 +1,4 @@
-package lwm2m
+package server
 
 import (
 	"bytes"
@@ -11,20 +11,19 @@ const (
 	PSK_ID_HINT = "psk_id_hint"
 )
 
-
 type DTLSConnector struct {
 	store Store
 }
 
-func (c *DTLSConnector) PSK(id []byte) ([]byte, error) {
+func (c *DTLSConnector) psk(id []byte) ([]byte, error) {
 	return c.store.PSKFromIdentity(id)
 }
 
-func (c *DTLSConnector) OnNewClientConn(cc *client.ClientConn, dtlsConn *piondtls.Conn) {
+func (c *DTLSConnector) onNewClientConn(cc *client.ClientConn, dtlsConn *piondtls.Conn) {
 	cc.SetContextValue(PSK_ID_HINT, dtlsConn.ConnectionState().IdentityHint)
 }
 
-func (c *DTLSConnector) ValidateClientConn(cc *client.ClientConn, ep string) error {
+func (c *DTLSConnector) validateClientConn(cc *client.ClientConn, ep string) error {
 	hi := cc.Context().Value(PSK_ID_HINT).([]byte)
 	ehi, err := c.store.PSKIdentityFromEP([]byte(ep))
 	if err != nil {

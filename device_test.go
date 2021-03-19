@@ -1,3 +1,0 @@
-package lwm2m
-
-

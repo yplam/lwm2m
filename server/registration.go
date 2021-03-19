@@ -1,4 +1,4 @@
-package lwm2m
+package server
 
 import (
 	"github.com/plgd-dev/go-coap/v2/message"
@@ -7,6 +7,7 @@ import (
 	"github.com/plgd-dev/go-coap/v2/udp/client"
 	"io/ioutil"
 	"log"
+	"lwm2m/corelink"
 	"strconv"
 	"strings"
 	"time"
@@ -14,23 +15,22 @@ import (
 
 type ValidateClientConnCallback func(cc *client.ClientConn, ep string) error
 
-
 type Registration struct {
 	s                  *Server
 	ValidateClientConn ValidateClientConnCallback
 }
 
-func (r *Registration) ServeCOAP(w mux.ResponseWriter, m *mux.Message)  {
+func (r *Registration) ServeCOAP(w mux.ResponseWriter, m *mux.Message) {
 	log.Printf("registration resource:  %+v from %v\n", m, w.Client().RemoteAddr())
 	firstIdx, lastIdx, err := m.Options.Find(message.URIPath)
-	if err!=nil || string(m.Options[firstIdx].Value) != "rd" {
+	if err != nil || string(m.Options[firstIdx].Value) != "rd" {
 		r.handleBadRequest(w)
 		return
 	}
-	if lastIdx - 1 == firstIdx {
+	if lastIdx-1 == firstIdx {
 		// handle registration
 		r.handleRegistration(w, m)
-	} else if lastIdx - 2 == firstIdx {
+	} else if lastIdx-2 == firstIdx {
 		id := string(m.Options[firstIdx+1].Value)
 		// handle update
 		if m.Code == codes.POST {
@@ -90,16 +90,16 @@ func (r *Registration) handleRegistration(w mux.ResponseWriter, m *mux.Message) 
 	}
 	// use this callback to validate dtls connection and register endpoint
 	if r.ValidateClientConn != nil {
-		err = r.ValidateClientConn(w.Client().ClientConn().(* client.ClientConn), endpoint)
+		err = r.ValidateClientConn(w.Client().ClientConn().(*client.ClientConn), endpoint)
 		if err != nil {
 			_ = w.SetResponse(codes.Forbidden, message.TextPlain, nil)
 			return
 		}
 	}
-	var links []*coreLink
+	var links []*corelink.CoreLink
 	if m.Body != nil {
 		if b, err := ioutil.ReadAll(m.Body); err == nil {
-			links = coreLinksFromString(string(b))
+			links, _ = corelink.CoreLinksFromString(string(b))
 		}
 	}
 	d, err := r.s.Register(endpoint, lifetime, version, binding, smsNumber, links, w.Client())
@@ -146,10 +146,10 @@ func (r *Registration) handleUpdate(w mux.ResponseWriter, m *mux.Message, id str
 		r.handleBadRequest(w)
 		return
 	}
-	var links []*coreLink
+	var links []*corelink.CoreLink
 	if m.Body != nil {
 		if b, err := ioutil.ReadAll(m.Body); err == nil {
-			links = coreLinksFromString(string(b))
+			links, _ = corelink.CoreLinksFromString(string(b))
 		}
 	}
 	err = r.s.Update(id, lifetime, binding, smsNumber, links)
@@ -180,7 +180,7 @@ func (r *Registration) handleDelete(w mux.ResponseWriter, m *mux.Message, id str
 	}()
 }
 
-func NewRegistration(s *Server) *Registration {
+func newRegistration(s *Server) *Registration {
 	return &Registration{
 		s: s,
 	}

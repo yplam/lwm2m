@@ -1,4 +1,4 @@
-package lwm2m
+package server
 
 import (
 	"context"
@@ -10,16 +10,17 @@ import (
 	"github.com/plgd-dev/go-coap/v2/net"
 	"github.com/plgd-dev/go-coap/v2/udp/client"
 	"log"
+	"lwm2m"
+	"lwm2m/corelink"
+	"lwm2m/model"
 	"math/rand"
-	"strconv"
-	"strings"
 	"sync"
+	"time"
 )
 
 var defaultServerOptions = serverOptions{
-	ctx:      context.Background(),
-	store:    NewDummy(),
-	registry: NewDefaultRegistry(),
+	store:    lwm2m.NewDummy(),
+	registry: model.NewDefaultRegistry(),
 }
 
 type ServerOption interface {
@@ -32,20 +33,23 @@ type Store interface {
 }
 
 type serverOptions struct {
-	ctx      context.Context
-	store    Store
-	registry *Registry
+	store           Store
+	registry        *model.Registry
+	onNewDeviceConn OnNewDeviceConnFunc
 }
 
+type OnNewDeviceConnFunc = func(d *Device)
+
 type Server struct {
-	ctx           context.Context
-	cancel        context.CancelFunc
-	loggerFactory logging.LoggerFactory
-	store         Store
-	lock          sync.RWMutex
-	devices       map[string]*Device
-	epToID        map[string]string
-	registry      *Registry
+	ctx             context.Context
+	cancel          context.CancelFunc
+	loggerFactory   logging.LoggerFactory
+	store           Store
+	lock            sync.RWMutex
+	devices         map[string]*Device
+	epToID          map[string]string
+	registry        *model.Registry
+	onNewDeviceConn OnNewDeviceConnFunc
 }
 
 func (s *Server) DeRegister(id string) error {
@@ -61,8 +65,8 @@ func (s *Server) DeRegister(id string) error {
 }
 
 func (s *Server) Register(ep string, lifetime int, version string, binding string,
-	sms string, links []*coreLink, client mux.Client) (*Device, error) {
-	if id, err := s.GetIdByEndpoint(ep); err == nil {
+	sms string, links []*corelink.CoreLink, client mux.Client) (*Device, error) {
+	if id, err := s.getIdByEndpoint(ep); err == nil {
 		_ = s.DeRegister(id)
 	}
 	s.lock.Lock()
@@ -75,44 +79,21 @@ func (s *Server) Register(ep string, lifetime int, version string, binding strin
 		client:   client,
 		Binding:  binding,
 		Sms:      sms,
-		Objs:     make(map[uint16]*Object),
+		Objs:     make(map[uint16]*model.Object),
 	}
-	s.parseCoreLinks(d, links)
+	d.ParseCoreLinks(links)
 	s.devices[d.ID] = d
 	s.epToID[ep] = d.ID
 	return d, nil
 }
 
-func (s *Server)parseCoreLinks(d *Device, links []*coreLink) {
-	for _,v := range links{
-		log.Printf("%v", v.uri)
-		sps := strings.Split(strings.Trim(v.uri, "/"), "/")
-		if len(sps) == 0 {
-			continue
-		}
-		id, err := strconv.Atoi(sps[0])
-		if err != nil {
-			continue
-		}
-		uid := uint16(id)
-		obj, ok := d.Objs[uid]
-		if !ok {
-			obj = NewObject(uid, s.registry.objs[uid])
-		}
-		if len(sps) == 2{
-			if rid, err:=strconv.Atoi(sps[1]); err==nil{
-				obj.Instances[uint16(rid)] = true
-			}
-		}
-		d.Objs[uid] = obj
-	}
-}
-
-
 func (s *Server) PostRegister(id string) {
 	d := s.GetByID(id)
 	if d == nil {
 		return
+	}
+	if s.onNewDeviceConn != nil {
+		s.onNewDeviceConn(d)
 	}
 	log.Println("after device register")
 }
@@ -122,7 +103,7 @@ func (s *Server) PostUpdate(id string) {
 }
 
 func (s *Server) Update(id string, lifetime int, binding string, sms string,
-	links []*coreLink) error {
+	links []*corelink.CoreLink) error {
 	d, ok := s.devices[id]
 	if !ok {
 		return errors.New("device not found")
@@ -137,7 +118,7 @@ func (s *Server) Update(id string, lifetime int, binding string, sms string,
 		d.Sms = sms
 	}
 	if links != nil {
-		s.parseCoreLinks(d, links)
+		d.ParseCoreLinks(links)
 	}
 	return nil
 }
@@ -156,7 +137,7 @@ func (s *Server) generateRegId() string {
 	}
 }
 
-func (s *Server) GetIdByEndpoint(ep string) (string, error) {
+func (s *Server) getIdByEndpoint(ep string) (string, error) {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
 	if id, ok := s.epToID[ep]; ok {
@@ -172,6 +153,14 @@ func (s *Server) GetByID(id string) *Device {
 		return d
 	}
 	return nil
+}
+
+func (s *Server) GetByEndpoint(ep string) *Device {
+	id, err := s.getIdByEndpoint(ep)
+	if err != nil {
+		return nil
+	}
+	return s.GetByID(id)
 }
 
 func (s *Server) run(ctx context.Context) {
@@ -194,7 +183,7 @@ func (s *Server) ListenAndServeDTLS(network string, addr string) error {
 		CipherSuites:         []piondtls.CipherSuiteID{piondtls.TLS_PSK_WITH_AES_128_CCM_8},
 		ExtendedMasterSecret: piondtls.DisableExtendedMasterSecret,
 		PSK: func(id []byte) ([]byte, error) {
-			return dc.PSK(id)
+			return dc.psk(id)
 		},
 		LoggerFactory: s.loggerFactory,
 		ConnectContextMaker: func() (context.Context, func()) {
@@ -208,15 +197,15 @@ func (s *Server) ListenAndServeDTLS(network string, addr string) error {
 	defer l.Close()
 
 	m := mux.NewRouter()
-	reg := NewRegistration(s)
+	reg := newRegistration(s)
 	_ = m.Handle("/rd", reg)
 	_ = m.Handle("/rd/", reg)
-	reg.ValidateClientConn = dc.ValidateClientConn
+	reg.ValidateClientConn = dc.validateClientConn
 
 	cs := coapdtls.NewServer(coapdtls.WithMux(m),
-		coapdtls.WithKeepAlive(nil),
+		//coapdtls.WithKeepAlive(0,0, nil),
 		coapdtls.WithOnNewClientConn(func(cc *client.ClientConn, dtlsConn *piondtls.Conn) {
-			dc.OnNewClientConn(cc, dtlsConn)
+			dc.onNewClientConn(cc, dtlsConn)
 		}))
 	return cs.Serve(l)
 }
@@ -227,18 +216,23 @@ func NewServer(opt ...ServerOption) *Server {
 		o.apply(&opts)
 	}
 
-	ctx, cancel := context.WithCancel(opts.ctx)
+	ctx, cancel := context.WithCancel(context.Background())
 
 	loggerFactory := logging.NewDefaultLoggerFactory()
 	loggerFactory.DefaultLogLevel = logging.LogLevelDebug
 
 	return &Server{
-		ctx:           ctx,
-		cancel:        cancel,
-		loggerFactory: loggerFactory,
-		store:         opts.store,
-		devices:       make(map[string]*Device),
-		epToID:        make(map[string]string),
-		registry:      opts.registry,
+		ctx:             ctx,
+		cancel:          cancel,
+		loggerFactory:   loggerFactory,
+		store:           opts.store,
+		devices:         make(map[string]*Device),
+		epToID:          make(map[string]string),
+		registry:        opts.registry,
+		onNewDeviceConn: opts.onNewDeviceConn,
 	}
+}
+
+func init() {
+	rand.Seed(time.Now().UnixNano())
 }
