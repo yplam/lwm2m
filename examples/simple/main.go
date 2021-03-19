@@ -2,14 +2,14 @@ package main
 
 import (
 	"log"
-	"lwm2m"
+	"lwm2m/server"
 	"os"
 	"os/signal"
 	"syscall"
 )
 
 func main() {
-	s := lwm2m.NewServer()
+	s := server.NewServer()
 	go func() {
 		log.Fatal(s.ListenAndServeDTLS("udp", ":5684"))
 	}()
