@@ -1,9 +1,25 @@
-package lwm2m
-
-type ResourceId uint16
+package model
 
 type Resource struct {
-	ID ResourceId
+	Id       uint16
+	Multiple bool
+	Values   map[uint16][]byte
+}
+
+func (r Resource) ID() uint16 {
+	return r.Id
+}
+
+func NewResource(id uint16, isMultiple bool) *Resource {
+	return &Resource{
+		Id:       id,
+		Multiple: isMultiple,
+		Values:   make(map[uint16][]byte),
+	}
+}
+
+func (r *Resource) SetValue(v []byte) {
+	r.Values[0] = v
 }
 
 type ResourceOperations byte
@@ -30,7 +46,7 @@ var (
 )
 
 type ResourceDefinition struct {
-	ID          ResourceId
+	ID          uint16
 	Name        string
 	Description string
 	Operations  ResourceOperations

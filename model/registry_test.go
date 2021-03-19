@@ -1,4 +1,4 @@
-package lwm2m
+package model
 
 import (
 	"github.com/stretchr/testify/assert"
@@ -15,9 +15,9 @@ func TestNewRegistry(t *testing.T) {
 	validateRegistryTest(t, reg)
 }
 
-func validateRegistryTest(t *testing.T, reg *Registry)  {
-	assert.Equal(t, len(reg.objs), 288)
-	assert.Equal(t, reg.objs[3].Name, "Device")
+func validateRegistryTest(t *testing.T, reg *Registry) {
+	assert.Equal(t, len(reg.Objs), 288)
+	assert.Equal(t, reg.Objs[3].Name, "Device")
 }
 
 func TestSingleObject(t *testing.T) {
@@ -161,7 +161,7 @@ func TestSingleObject(t *testing.T) {
 `
 	obj, err := loadObjectDefinition([]byte(blob))
 	assert.Nil(t, err)
-	assert.Equal(t, obj.ID, 3303)
+	assert.Equal(t, obj.Id, 3303)
 	assert.Equal(t, obj.Name, "Temperature")
 	assert.Equal(t, obj.Description, "This IPSO object should be used with a temperature sensor to report a temperature measurement.  It also provides resources for minimum/maximum measured values and the minimum/maximum range that can be measured by the temperature sensor. An example measurement unit is degrees Celsius.")
 	assert.Equal(t, obj.Multiple, true)
@@ -169,7 +169,7 @@ func TestSingleObject(t *testing.T) {
 	assert.Equal(t, obj.LWM2MVersion, "1.0")
 	assert.Equal(t, obj.Version, "1.1")
 	assert.Equal(t, len(obj.Resources), 12)
-	assert.Equal(t, obj.Resources[0].ID, ResourceId(5700))
+	assert.Equal(t, obj.Resources[0].ID, uint16(5700))
 	assert.Equal(t, obj.Resources[0].Name, "Sensor Value")
 	assert.Equal(t, obj.Resources[0].Operations, OP_R)
 	assert.Equal(t, obj.Resources[0].Multiple, false)

@@ -1,4 +1,4 @@
-package lwm2m
+package model
 
 // ref http://openmobilealliance.org/tech/profiles/LWM2M.xsd
 
@@ -11,15 +11,15 @@ import (
 	"strings"
 )
 
-//go:embed models/*.xml
+//go:embed definition/*.xml
 var regDefaultDir embed.FS
 
 type Registry struct {
-	objs map[uint16]*ObjectDefinition
+	Objs map[uint16]*ObjectDefinition
 }
 
 func NewDefaultRegistry() *Registry {
-	entities, err := regDefaultDir.ReadDir("models")
+	entities, err := regDefaultDir.ReadDir("definition")
 	if err != nil {
 		panic("can not load default registry")
 	}
@@ -28,7 +28,7 @@ func NewDefaultRegistry() *Registry {
 		if v.IsDir() {
 			continue
 		}
-		data, err := regDefaultDir.ReadFile("models/" + v.Name())
+		data, err := regDefaultDir.ReadFile("definition/" + v.Name())
 		if err != nil {
 			log.Printf("%v", err)
 			continue
@@ -38,10 +38,10 @@ func NewDefaultRegistry() *Registry {
 			log.Printf("%v", err)
 			continue
 		}
-		objs[uint16(obj.ID)] = obj
+		objs[uint16(obj.Id)] = obj
 	}
 	return &Registry{
-		objs: objs,
+		Objs: objs,
 	}
 }
 
@@ -53,7 +53,7 @@ func NewRegistry(paths ...string) *Registry {
 		if err != nil {
 			continue
 		}
-		for _,f := range files{
+		for _, f := range files {
 			if f.IsDir() {
 				continue
 			}
@@ -65,14 +65,13 @@ func NewRegistry(paths ...string) *Registry {
 			if err != nil {
 				continue
 			}
-			objs[uint16(obj.ID)] = obj
+			objs[uint16(obj.Id)] = obj
 		}
 	}
 	return &Registry{
-		objs: objs,
+		Objs: objs,
 	}
 }
-
 
 func loadObjectDefinition(x []byte) (*ObjectDefinition, error) {
 	var xx xLWM2M
@@ -96,7 +95,7 @@ func loadObjectDefinition(x []byte) (*ObjectDefinition, error) {
 		})
 	}
 	return &ObjectDefinition{
-		ID:           xo.ObjectID,
+		Id:           xo.ObjectID,
 		Name:         xo.Name,
 		Description:  xo.Description1,
 		Multiple:     xo.MultipleInstances == "Multiple",
@@ -184,7 +183,7 @@ type xResourcesDefinition struct {
 //<Description>Last or Current Measured Value from the Sensor.</Description>
 //</Item>
 type xResourceDefinition struct {
-	ID                ResourceId `xml:"ID,attr"`
+	ID                uint16 `xml:"ID,attr"`
 	Name              string
 	Description       string
 	Operations        string
