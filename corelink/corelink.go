@@ -1,25 +1,59 @@
-package lwm2m
+package corelink
 
 import (
+	"errors"
 	"regexp"
 	"strings"
 )
 
-type coreLink struct {
-	uri string
-	params map[string]string
+var (
+	ErrCoreLinkInvalidValue = errors.New("invalid core link string value")
+)
+
+// CoreLink is a link format use by Coap.
+// Defines in RFC6690
+// LWM2M use CoreLink to discover objects
+type CoreLink struct {
+	Uri    string
+	Params map[string]string
 }
 
-func newcoreLink() *coreLink {
-	return &coreLink{
-		params: make(map[string]string),
+func NewCoreLink() *CoreLink {
+	return &CoreLink{
+		Params: make(map[string]string),
 	}
 }
 
-func (l *coreLink) SetParam(key string, val string)  {
-	l.params[key] = val
+func (l *CoreLink) SetParam(key string, val string) {
+	l.Params[key] = val
 }
 
+func (l *CoreLink) UnmarshalText(text []byte) error {
+	if len(text) < 3 {
+		return ErrCoreLinkInvalidValue
+	}
+	str := string(text)
+	var elemRe = regexp.MustCompile(`<[^>]*>`)
+	elemMatch := elemRe.FindString(str)
+	if len(elemMatch) < 3 {
+		return ErrCoreLinkInvalidValue
+	}
+	l.Uri = elemMatch[1 : len(elemMatch)-1]
+	if len(text) > len(elemMatch) {
+		attrs := strings.Split(str[len(elemMatch)+1:], ";")
+		for _, attr := range attrs {
+			pair := strings.Split(attr, "=")
+			if len(pair) != 2 || len(pair[0]) == 0 {
+				return ErrCoreLinkInvalidValue
+			}
+			l.Params[pair[0]] = strings.Replace(pair[1], "\"", "", -1)
+		}
+	}
+	return nil
+}
+
+//	A CoRE resource discovery response may contains multiple CoreLink values
+//
 //    Link            = link-value-list
 //    link-value-list = [ link-value *[ "," link-value ]]
 //    link-value     = "<" URI-Reference ">" *( ";" link-param )
@@ -66,27 +100,14 @@ func (l *coreLink) SetParam(key string, val string)  {
 //    ext-value      = <defined in [RFC5987]>
 //    parmname       = <defined in [RFC5987]>
 
-func coreLinksFromString(s string) []*coreLink {
-
+func CoreLinksFromString(s string) (links []*CoreLink, err error) {
 	var re = regexp.MustCompile(`(<[^>]+>\s*(;\s*\w+\s*(=\s*(\w+|"([^"\\]*(\\.[^"\\]*)*)")\s*)?)*)`)
-	var elemRe = regexp.MustCompile(`<[^>]*>`)
-
-	var links []*coreLink
 	m := re.FindAllString(s, -1)
-
 	for _, match := range m {
-		elemMatch := elemRe.FindString(match)
-		l := newcoreLink()
-		l.uri = elemMatch[1 : len(elemMatch)-1]
-		if len(match) > len(elemMatch) {
-			attrs := strings.Split(match[len(elemMatch)+1:], ";")
-			for _, attr := range attrs {
-				pair := strings.Split(attr, "=")
-				l.params[pair[0]] = strings.Replace(pair[1], "\"", "", -1)
-			}
+		l := NewCoreLink()
+		if err = l.UnmarshalText([]byte(match)); err == nil {
+			links = append(links, l)
 		}
-		links = append(links, l)
 	}
-
-	return links
+	return
 }
