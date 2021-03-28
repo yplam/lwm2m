@@ -81,9 +81,12 @@ func nodesToTlvs(nodes []model.Node) ([]*TLV, error) {
 	for _, node := range nodes {
 		switch reflect.TypeOf(node).String() {
 		case "*model.Resource":
-			n := node.(*model.Resource)
-			tlv := NewTLV(SingleResource, n.Id, n.Values[0])
-			tlvs = append(tlvs, tlv)
+			if n, okay := node.(*model.Resource); okay {
+				if v, okay := n.Values[0]; okay {
+					tlv := NewTLV(SingleResource, n.Id, v)
+					tlvs = append(tlvs, tlv)
+				}
+			}
 		}
 	}
 	return tlvs, nil
