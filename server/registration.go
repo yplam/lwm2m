@@ -21,26 +21,32 @@ type Registration struct {
 }
 
 func (r *Registration) ServeCOAP(w mux.ResponseWriter, m *mux.Message) {
-	log.Printf("registration resource:  %+v from %v\n", m, w.Client().RemoteAddr())
+	//log.Printf("registration resource from %v\n",w.Client().RemoteAddr())
 	firstIdx, lastIdx, err := m.Options.Find(message.URIPath)
 	if err != nil || string(m.Options[firstIdx].Value) != "rd" {
+		log.Printf("wrong path")
 		r.handleBadRequest(w)
 		return
 	}
 	if lastIdx-1 == firstIdx {
 		// handle registration
+		log.Printf("handle registration")
 		r.handleRegistration(w, m)
 	} else if lastIdx-2 == firstIdx {
 		id := string(m.Options[firstIdx+1].Value)
 		// handle update
 		if m.Code == codes.POST {
+			log.Printf("handle update")
 			r.handleUpdate(w, m, id)
 		} else if m.Code == codes.DELETE {
+			log.Printf("handle delete")
 			r.handleDelete(w, m, id)
 		} else {
+			log.Printf("handle bad request")
 			r.handleBadRequest(w)
 		}
 	} else {
+		log.Printf("handle bad request 2")
 		r.handleBadRequest(w)
 	}
 }
@@ -117,36 +123,33 @@ func (r *Registration) handleRegistration(w mux.ResponseWriter, m *mux.Message) 
 
 func (r *Registration) handleUpdate(w mux.ResponseWriter, m *mux.Message, id string) {
 	q, err := m.Options.Queries()
-	if err != nil {
-		r.handleBadRequest(w)
-		return
-	}
 	var lifetime int
 	var smsNumber string
 	var binding string
 	params := make(map[string]string)
-
-	for _, val := range q {
-		sps := strings.Split(val, "=")
-		if len(sps) != 2 {
-			continue
-		}
-		switch sps[0] {
-		case "lt":
-			lifetime, err = strconv.Atoi(sps[1])
-		case "sms":
-			smsNumber = sps[1]
-		case "b":
-			binding = sps[1]
-		default:
-			params[sps[0]] = sps[1]
-		}
-	}
-	if err != nil {
-		r.handleBadRequest(w)
-		return
-	}
 	var links []*corelink.CoreLink
+	if err == nil {
+		for _, val := range q {
+			sps := strings.Split(val, "=")
+			if len(sps) != 2 {
+				continue
+			}
+			switch sps[0] {
+			case "lt":
+				lifetime, err = strconv.Atoi(sps[1])
+				if err != nil {
+					lifetime = 0
+				}
+			case "sms":
+				smsNumber = sps[1]
+			case "b":
+				binding = sps[1]
+			default:
+				params[sps[0]] = sps[1]
+			}
+		}
+	}
+
 	if m.Body != nil {
 		if b, err := ioutil.ReadAll(m.Body); err == nil {
 			links, _ = corelink.CoreLinksFromString(string(b))

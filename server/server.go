@@ -163,15 +163,6 @@ func (s *Server) GetByEndpoint(ep string) *Device {
 	return s.GetByID(id)
 }
 
-func (s *Server) run(ctx context.Context) {
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		}
-	}
-}
-
 // Stop stops server without wait of ends Serve function.
 func (s *Server) Stop() {
 	s.cancel()
