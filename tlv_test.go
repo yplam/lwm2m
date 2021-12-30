@@ -2,10 +2,10 @@ package lwm2m
 
 import (
 	"encoding/hex"
-	"github.com/stretchr/testify/assert"
-	"log"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestTLVLen(t *testing.T) {
@@ -13,7 +13,7 @@ func TestTLVLen(t *testing.T) {
 	assert.Equal(t, tlvLen([]byte{0x03, 0x34}), uint32(0x0334))
 }
 
-func strToByte(str string) (dst []byte, err error) {
+func _strToByte(str string) (dst []byte, err error) {
 	str = strings.ReplaceAll(str, "\t", "")
 	str = strings.ReplaceAll(str, "\n", "")
 	str = strings.ReplaceAll(str, " ", "")
@@ -44,12 +44,13 @@ func TestSingleObjectTLV(t *testing.T) {
 	C4 0D 51 82 42 8F
 	C6 0E 2B 30 32 3A 30 30
 	C1 10 55`
-	data, err := strToByte(str)
+	data, err := _strToByte(str)
 	assert.Nil(t, err)
-	log.Printf("%#v", data)
+	//log.Printf("%#v", data)
 	v, err := DecodeTLVs(data)
 	assert.Nil(t, err)
-	//log.Printf("%#v", v)
+	//e, _ := json.MarshalIndent(v, "", "\t")
+	//t.Logf("%v", string(e))
 	assert.Equal(t, len(v), 13)
 	assert.Equal(t, len(v[4].Children), 2)
 	assert.Equal(t, len(v[5].Children), 2)
@@ -108,10 +109,12 @@ C4 0D 51 82 42 8F
 C6 0E 2B 30 32 3A 30 30
 C1 10 55
 	`
-	data, err := strToByte(str)
+	data, err := _strToByte(str)
 	assert.Nil(t, err)
 	//log.Printf("%#v", data)
 	v, err := DecodeTLVs(data)
+	//e, _ := json.MarshalIndent(v, "", "\t")
+	//t.Logf("%v", string(e))
 	assert.Nil(t, err)
 	assert.Equal(t, len(v), 1)
 	assert.Equal(t, len(v[0].Children), 13)
@@ -131,7 +134,7 @@ C1 01 00
 87 02 41 7F 07 61 01 36 01
 C1 03 7F
 	`
-	data, err := strToByte(str)
+	data, err := _strToByte(str)
 	assert.Nil(t, err)
 	//log.Printf("%#v", data)
 	v, err := DecodeTLVs(data)
@@ -148,7 +151,7 @@ C4 01 00 01 51 80
 C1 06 01
 C1 07 55
 `
-	data, err = strToByte(str)
+	data, err = _strToByte(str)
 	assert.Nil(t, err)
 	//log.Printf("%#v", data)
 	_, err = DecodeTLVs(data)
@@ -163,7 +166,7 @@ func TestObjectLinkTLV(t *testing.T) {
 C8 01 0D 38 36 31 33 38 30 30 37 35 35 35 30 30
 C4 02 12 34 56 78
 `
-	data, err := strToByte(str)
+	data, err := _strToByte(str)
 	assert.Nil(t, err)
 	//log.Printf("%#v", data)
 	_, err = DecodeTLVs(data)
@@ -179,7 +182,7 @@ C8 00 0B 6D 79 53 65 72 76 69 63 65 20 32
 C8 01 0F 49 6E 74 65 72 6E 65 74 2E 31 35 2E 32 33 35
 C4 02 FF FF FF FF
 `
-	data, err = strToByte(str)
+	data, err = _strToByte(str)
 	assert.Nil(t, err)
 	//log.Printf("%#v", data)
 	_, err = DecodeTLVs(data)
@@ -192,5 +195,5 @@ func TestSimpleEncodeDecode(t *testing.T) {
 	tlvs, err := DecodeTLVs(data)
 	assert.Nil(t, err)
 	data2 := EncodeTLVs(tlvs)
-	log.Printf("%#v", data2)
+	assert.Equal(t, data, data2)
 }

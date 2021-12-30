@@ -25,11 +25,12 @@ var (
 )
 
 type Store interface {
+	// PSKIdentityFromEP
 	PSKIdentityFromEP([]byte) ([]byte, error)
 	PSKFromIdentity([]byte) ([]byte, error)
 }
 
-type OnNewDeviceConnFunc = func(d *Device)
+type OnNewDeviceConnFunc func(d *Device)
 
 type Server struct {
 	log             logging.LeveledLogger
@@ -38,7 +39,6 @@ type Server struct {
 	lock            sync.RWMutex
 	devices         map[string]*Device
 	epToID          map[string]string
-	registry        *Registry
 	onNewDeviceConn OnNewDeviceConnFunc
 	udpNetwork      string
 	udpAddr         string
@@ -253,7 +253,6 @@ func NewServer(opt ...ServerOption) *Server {
 		LoggerFactory: NewDefaultLoggerFactory(),
 		devices:       make(map[string]*Device),
 		epToID:        make(map[string]string),
-		registry:      NewDefaultRegistry(),
 	}
 	for _, o := range opt {
 		o(s)

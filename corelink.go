@@ -1,13 +1,8 @@
 package lwm2m
 
 import (
-	"errors"
 	"regexp"
 	"strings"
-)
-
-var (
-	ErrCoreLinkInvalidValue = errors.New("invalid core link string value")
 )
 
 // CoreLink is a link format use by Coap.

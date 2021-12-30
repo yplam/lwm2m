@@ -8,4 +8,5 @@ require (
 	github.com/plgd-dev/go-coap/v2 v2.4.0
 	github.com/sirupsen/logrus v1.4.2
 	github.com/stretchr/testify v1.7.0
+	golang.org/x/net v0.0.0-20210331212208-0fccb6fa2b5c
 )

@@ -35,7 +35,7 @@ func (d *Device) Observe(p Path, onMsg func(d *Device, p Path, notify []Node)) (
 		return nil, err
 	}
 	return d.client.Observe(context.Background(), p.String(), func(notification *message.Message) {
-		m, err := DecodeMessage(message.AppLwm2mTLV, notification.Body)
+		m, err := DecodeMessage(message.AppLwm2mTLV, p, notification.Body)
 		if err != nil {
 			return
 		}
@@ -60,7 +60,7 @@ func (d *Device) Write(p Path, vals ...Node) {
 	_ = d.updateValue(p, vals...)
 }
 
-// Value Return last shadow value of path
+// Value Return last shadow value of Path
 func (d *Device) Value(p Path) (Node, error) {
 	return nil, nil
 }
@@ -92,4 +92,11 @@ func (d *Device) ParseCoreLinks(links []*CoreLink) {
 		}
 		d.Objs[objId] = obj
 	}
+}
+
+func (d *Device) HasObject(id uint16) bool {
+	if _, okay := d.Objs[id]; okay {
+		return true
+	}
+	return false
 }

@@ -7,12 +7,12 @@ import (
 )
 
 func TestDefaultRegistry(t *testing.T) {
-	reg := NewDefaultRegistry()
+	reg := UseDefaultRegistry()
 	validateRegistryTest(t, reg)
 }
 
 func TestNewRegistry(t *testing.T) {
-	reg := NewRegistry("definition")
+	reg := ConfigRegistry("definition")
 	validateRegistryTest(t, reg)
 }
 
@@ -170,11 +170,11 @@ func TestSingleObject(t *testing.T) {
 	assert.Equal(t, obj.LWM2MVersion, "1.0")
 	assert.Equal(t, obj.Version, "1.1")
 	assert.Equal(t, len(obj.Resources), 12)
-	assert.Equal(t, obj.Resources[0].ID, uint16(5700))
-	assert.Equal(t, obj.Resources[0].Name, "Sensor Value")
-	assert.Equal(t, obj.Resources[0].Operations, OP_R)
-	assert.Equal(t, obj.Resources[0].Multiple, false)
-	assert.Equal(t, obj.Resources[0].Mandatory, true)
-	assert.Equal(t, obj.Resources[0].Type, R_FLOAT)
-	assert.Equal(t, obj.Resources[0].Description, "Last or Current Measured Value from the Sensor.")
+	assert.Equal(t, obj.Resources[5700].ID, uint16(5700))
+	assert.Equal(t, obj.Resources[5700].Name, "Sensor Value")
+	assert.Equal(t, obj.Resources[5700].Operations, OP_R)
+	assert.Equal(t, obj.Resources[5700].Multiple, false)
+	assert.Equal(t, obj.Resources[5700].Mandatory, true)
+	assert.Equal(t, obj.Resources[5700].Type, R_FLOAT)
+	assert.Equal(t, obj.Resources[5700].Description, "Last or Current Measured Value from the Sensor.")
 }

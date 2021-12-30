@@ -13,7 +13,7 @@ var (
 	ErrPathInvalidIdValue = errors.New("invalid path id value")
 )
 
-// Real Id value is uint16, -1 means null
+// Path is LWM2M resource Path Real id value is uint16, -1 means null
 type Path struct {
 	objectId           int32
 	objectInstanceId   int32
@@ -71,6 +71,15 @@ func NewObjectPath(objID uint16) Path {
 	return Path{
 		objectId:           int32(objID),
 		objectInstanceId:   -1,
+		resourceId:         -1,
+		resourceInstanceId: -1,
+	}
+}
+
+func NewObjectInstancePath(objID, obiID uint16) Path {
+	return Path{
+		objectId:           int32(objID),
+		objectInstanceId:   int32(obiID),
 		resourceId:         -1,
 		resourceInstanceId: -1,
 	}

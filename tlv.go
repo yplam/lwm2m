@@ -4,8 +4,9 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
-	"log"
 	"math"
+
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -72,7 +73,7 @@ func (t *TLV) Unmarshal(data []byte) (uint32, error) {
 	if dlen < 2 {
 		return 0, ErrTLVNotEnoughData
 	}
-	//log.Printf("%#v", data)
+	logrus.Debugf("tlv unmarshal %#v", data)
 	t.Type = TLVType((data[0] >> 6) & 0x03)
 
 	var offset uint32 = 1
@@ -100,14 +101,14 @@ func (t *TLV) Unmarshal(data []byte) (uint32, error) {
 	t.Value = data[offset : offset+t.Length]
 	offset = offset + t.Length
 	if t.Type == TLVObjectInstance || t.Type == TLVMultipleResource {
-		//log.Printf("decode children %v, %#v", t.Length, t.Value)
+		logrus.Debugf("decode children of %v", t.Type)
 		c, err := DecodeTLVs(t.Value)
 		if err != nil {
 			return 0, err
 		}
 		t.Children = c
 	}
-	//log.Printf("total : %v, %#v", offset, t)
+	logrus.Debugf("total : %v, %#v", offset, t)
 	return offset, nil
 }
 
@@ -245,7 +246,7 @@ func DecodeTLVs(data []byte) ([]*TLV, error) {
 	var tlvs []*TLV
 	var offset uint32 = 0
 	var err error
-	log.Printf("%#v", data)
+	logrus.Debugf("tlv decode %#v", data)
 	for {
 		t := &TLV{}
 		o, err := t.Unmarshal(data[offset:])

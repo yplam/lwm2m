@@ -2,18 +2,11 @@ package lwm2m
 
 import (
 	"bytes"
-	"errors"
 	"io"
 	"io/ioutil"
 	"reflect"
 
-	"github.com/sirupsen/logrus"
-
 	"github.com/plgd-dev/go-coap/v2/message"
-)
-
-var (
-	ErrEmpty = errors.New("empty")
 )
 
 func EncodeMessage(t message.MediaType, node []Node) (io.ReadSeeker, error) {
@@ -33,7 +26,7 @@ func EncodeMessage(t message.MediaType, node []Node) (io.ReadSeeker, error) {
 	return nil, ErrEmpty
 }
 
-func DecodeMessage(t message.MediaType, msg io.ReadSeeker) ([]Node, error) {
+func DecodeMessage(t message.MediaType, p Path, msg io.ReadSeeker) ([]Node, error) {
 	c, err := ioutil.ReadAll(msg)
 	if err != nil {
 		return nil, err
@@ -44,23 +37,21 @@ func DecodeMessage(t message.MediaType, msg io.ReadSeeker) ([]Node, error) {
 		if err != nil {
 			return nil, err
 		}
-		return tlvsToNodes(tlvs)
+		return decodeTLVMessage(p, tlvs)
 	}
 	return nil, ErrEmpty
 }
 
-func tlvsToNodes(tlvs []*TLV) ([]Node, error) {
+func decodeTLVMessage(p Path, tlvs []*TLV) ([]Node, error) {
 	nodes := make([]Node, 0)
 	for _, tlv := range tlvs {
-		//logrus.Printf("%v", tlv.Type)
-		//logrus.Printf("%v", tlv.Value)
 		switch tlv.Type {
 		case TLVObjectInstance:
 			n := NewObjectInstance(tlv.Identifier)
 			if len(tlv.Children) > 0 {
-				if nn, err := tlvsToNodes(tlv.Children); err == nil {
+				p.objectInstanceId = 0
+				if nn, err := decodeTLVMessage(p, tlv.Children); err == nil {
 					for _, v := range nn {
-						//logrus.Printf("name: %#v", reflect.TypeOf(v).String())
 						if reflect.TypeOf(v).String() == "*lwm2m.Resource" {
 							n.Resources[v.ID()] = v.(*Resource)
 						}
@@ -70,13 +61,27 @@ func tlvsToNodes(tlvs []*TLV) ([]Node, error) {
 			}
 			nodes = append(nodes, n)
 		case TLVSingleResource:
-			n := NewResource(tlv.Identifier, false)
-			n.SetValue(tlv.Value)
-			nodes = append(nodes, n)
+			p.resourceId = int32(tlv.Identifier)
+			if n, err := NewResource(p, false, tlv.Value); err == nil {
+				nodes = append(nodes, n)
+			}
 		case TLVMultipleResource:
-			logrus.Warnf("TLVMultipleResource not handle")
+			p.resourceId = int32(tlv.Identifier)
+			if n, err := NewResource(p, true, tlv.Value); err == nil {
+				if nn, errr := decodeTLVMessage(p, tlv.Children); errr == nil {
+					for _, v := range nn {
+						if reflect.TypeOf(v).String() == "*lwm2m.Resource" {
+							n.addInstance(v.(*Resource))
+						}
+					}
+				}
+				nodes = append(nodes, n)
+			}
 		case TLVMultipleResourceItem:
-			logrus.Warnf("TLVMultipleResourceItem not handle")
+			p.resourceInstanceId = int32(tlv.Identifier)
+			if n, err := NewResource(p, false, tlv.Value); err == nil {
+				nodes = append(nodes, n)
+			}
 		}
 	}
 	return nodes, nil
@@ -88,10 +93,8 @@ func nodesToTlvs(nodes []Node) ([]*TLV, error) {
 		switch reflect.TypeOf(node).String() {
 		case "*lwm2m.Resource":
 			if n, okay := node.(*Resource); okay {
-				if v, okay := n.Values[0]; okay {
-					tlv := NewTLV(TLVSingleResource, n.Id, v)
-					tlvs = append(tlvs, tlv)
-				}
+				tlv := NewTLV(TLVSingleResource, n.id, n.data)
+				tlvs = append(tlvs, tlv)
 			}
 		}
 	}

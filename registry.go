@@ -9,16 +9,31 @@ import (
 	"log"
 	"os"
 	"strings"
+	"sync"
 )
 
 //go:embed definition/*.xml
 var regDefaultDir embed.FS
 
+var (
+	_reg      *Registry
+	_reg_lock sync.Mutex
+)
+
 type Registry struct {
 	Objs map[uint16]*ObjectDefinition
 }
 
-func NewDefaultRegistry() *Registry {
+func GetRegistry() *Registry {
+	if _reg == nil {
+		return UseDefaultRegistry()
+	}
+	return _reg
+}
+
+func UseDefaultRegistry() *Registry {
+	_reg_lock.Lock()
+	defer _reg_lock.Unlock()
 	entities, err := regDefaultDir.ReadDir("definition")
 	if err != nil {
 		panic("can not load default registry")
@@ -40,12 +55,15 @@ func NewDefaultRegistry() *Registry {
 		}
 		objs[uint16(obj.Id)] = obj
 	}
-	return &Registry{
+	_reg = &Registry{
 		Objs: objs,
 	}
+	return _reg
 }
 
-func NewRegistry(paths ...string) *Registry {
+func ConfigRegistry(paths ...string) *Registry {
+	_reg_lock.Lock()
+	defer _reg_lock.Unlock()
 	objs := make(map[uint16]*ObjectDefinition)
 	for _, p := range paths {
 		p = strings.TrimRight(p, "/")
@@ -68,9 +86,10 @@ func NewRegistry(paths ...string) *Registry {
 			objs[uint16(obj.Id)] = obj
 		}
 	}
-	return &Registry{
+	_reg = &Registry{
 		Objs: objs,
 	}
+	return _reg
 }
 
 func loadObjectDefinition(x []byte) (*ObjectDefinition, error) {
@@ -82,9 +101,11 @@ func loadObjectDefinition(x []byte) (*ObjectDefinition, error) {
 	if xo.ObjectID < 0 {
 		return nil, errors.New("no object definition found")
 	}
-	var res = make([]*ResourceDefinition, 0, len(xo.Resources.Item))
+	var res = make(map[uint16]*ResourceDefinition)
 	for _, v := range xo.Resources.Item {
-		res = append(res, &ResourceDefinition{
+		//rv, _ := json.MarshalIndent(v, "", "\t")
+		//logrus.Warn(string(rv))
+		res[v.ID] = &ResourceDefinition{
 			ID:          v.ID,
 			Name:        v.Name,
 			Description: v.Description,
@@ -92,7 +113,7 @@ func loadObjectDefinition(x []byte) (*ObjectDefinition, error) {
 			Multiple:    v.MultipleInstances == "Multiple",
 			Mandatory:   v.Mandatory == "Mandatory",
 			Type:        strToResourceType(v.Type),
-		})
+		}
 	}
 	return &ObjectDefinition{
 		Id:           xo.ObjectID,
