@@ -7,7 +7,7 @@ import (
 )
 
 func TestDefaultRegistry(t *testing.T) {
-	reg := UseDefaultRegistry()
+	reg := GetRegistry()
 	validateRegistryTest(t, reg)
 }
 
@@ -17,8 +17,8 @@ func TestNewRegistry(t *testing.T) {
 }
 
 func validateRegistryTest(t *testing.T, reg *Registry) {
-	assert.Equal(t, len(reg.Objs), 288)
-	assert.Equal(t, reg.Objs[3].Name, "Device")
+	assert.Equal(t, len(reg.objs), 288)
+	assert.Equal(t, reg.objs[3].Name, "Device")
 }
 
 func TestSingleObject(t *testing.T) {

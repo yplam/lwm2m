@@ -53,9 +53,51 @@ func TestNodeGetAllResources(t *testing.T) {
 	//	t.Logf("%v", n)
 	//}
 
+	rs, err := NodeGetAllResources(ns, p)
+	assert.Nil(t, err)
+	assert.Equal(t, 13, len(rs))
+	//for k, rr := range rs {
+	//	t.Logf("%v, %v", k, rr)
+	//}
+}
+
+func TestDecodeObjectInstance(t *testing.T) {
+	data := []byte{
+		0x8, 0x0, 0x26,
+		0xe4, 0x16, 0x44, 0x42, 0x80, 0xe7, 0xb7, 0xe0, 0x16, 0x45, 0xe4, 0x15, 0xe1,
+		0x42, 0x80, 0xe0, 0xaf, 0xe4, 0x15, 0xe2, 0x42, 0x80, 0xf5, 0xc7, 0xe4, 0x15,
+		0xe3, 0x0, 0x0, 0x0, 0x0, 0xe4, 0x15, 0xe4, 0x0, 0x0, 0x0, 0x0, 0x8, 0x1,
+		0x26, 0xe4, 0x16, 0x44, 0x0, 0x0, 0x0, 0x0, 0xe0, 0x16,
+		0x45, 0xe4, 0x15, 0xe1, 0x4e, 0xff, 0xff, 0xff, 0xe4,
+		0x15, 0xe2, 0xce, 0xff, 0xff, 0xff, 0xe4, 0x15, 0xe3, 0x0, 0x0, 0x0, 0x0, 0xe4,
+		0x15, 0xe4, 0x0, 0x0, 0x0, 0x0}
+	v, err := DecodeTLVs(data)
+	assert.Nil(t, err)
+	//e, _ := json.MarshalIndent(v, "", "\t")
+	//t.Logf("%v", string(e))
+	p := NewObjectPath(3303)
+	ns, err := decodeTLVMessage(p, v)
+	assert.Nil(t, err)
+	assert.Equal(t, 2, len(ns))
 	_, err = NodeGetAllResources(ns, p)
 	assert.Nil(t, err)
-	//for k, r := range rs {
-	//	t.Logf("%v, %+v", k, r)
+	//for k, rr := range rs {
+	//	t.Logf("%v, %v", k, rr)
+	//}
+}
+
+func TestSimplePackage(t *testing.T) {
+	data := []byte{228, 22, 68, 65, 177, 134, 201}
+	v, err := DecodeTLVs(data)
+	assert.Nil(t, err)
+	//e, _ := json.MarshalIndent(v, "", "\t")
+	//t.Logf("%v", string(e))
+	p := NewResourcePath(3303, 1, 5700)
+	ns, err := decodeTLVMessage(p, v)
+	assert.Nil(t, err)
+	_, err = NodeGetAllResources(ns, p)
+	assert.Nil(t, err)
+	//for k, rr := range rs {
+	//	t.Logf("%v, %v", k, rr)
 	//}
 }

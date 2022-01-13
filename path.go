@@ -156,6 +156,22 @@ func (p Path) IsResourceInstance() bool {
 		p.resourceId > -1 && p.resourceInstanceId > -1
 }
 
+func (p Path) IsChildOfOrEq(pp Path) bool {
+	if pp.objectId > -1 && p.objectId != pp.objectId {
+		return false
+	}
+	if pp.objectInstanceId > -1 && p.objectInstanceId != pp.objectInstanceId {
+		return false
+	}
+	if pp.resourceId > -1 && p.resourceId != pp.resourceId {
+		return false
+	}
+	if pp.resourceInstanceId > -1 && p.resourceInstanceId != pp.resourceInstanceId {
+		return false
+	}
+	return true
+}
+
 func (p Path) validate() bool {
 	if p.IsObject() {
 		return p.objectId >= 0 && p.objectId <= 65535

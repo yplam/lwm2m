@@ -6,9 +6,9 @@ import (
 	"embed"
 	"encoding/xml"
 	"errors"
-	"log"
+	"io/fs"
 	"os"
-	"strings"
+	"path/filepath"
 	"sync"
 )
 
@@ -17,65 +17,76 @@ var regDefaultDir embed.FS
 
 var (
 	_reg      *Registry
-	_reg_lock sync.Mutex
+	_reg_once sync.Once
 )
 
+type _FS interface {
+	fs.ReadFileFS
+	fs.ReadDirFS
+}
+
+type _wrapFS struct{}
+
+func (_ _wrapFS) Open(name string) (fs.File, error) {
+	return os.Open(name)
+}
+
+func (_ _wrapFS) ReadFile(name string) ([]byte, error) {
+	return os.ReadFile(name)
+}
+
+func (_ _wrapFS) ReadDir(name string) ([]fs.DirEntry, error) {
+	return os.ReadDir(name)
+}
+
+var _ _FS = (*_wrapFS)(nil)
+
 type Registry struct {
-	Objs map[uint16]*ObjectDefinition
+	objs map[uint16]*ObjectDefinition
+	mux  sync.RWMutex
 }
 
 func GetRegistry() *Registry {
-	if _reg == nil {
-		return UseDefaultRegistry()
-	}
+	_reg_once.Do(func() {
+		_reg = useDefaultRegistry()
+	})
 	return _reg
 }
 
-func UseDefaultRegistry() *Registry {
-	_reg_lock.Lock()
-	defer _reg_lock.Unlock()
-	entities, err := regDefaultDir.ReadDir("definition")
-	if err != nil {
-		panic("can not load default registry")
+func newRegistry() *Registry {
+	return &Registry{
+		objs: make(map[uint16]*ObjectDefinition),
 	}
-	objs := make(map[uint16]*ObjectDefinition, len(entities))
-	for _, v := range entities {
-		if v.IsDir() {
-			continue
-		}
-		data, err := regDefaultDir.ReadFile("definition/" + v.Name())
-		if err != nil {
-			log.Printf("%v", err)
-			continue
-		}
-		obj, err := loadObjectDefinition(data)
-		if err != nil {
-			log.Printf("%v", err)
-			continue
-		}
-		objs[uint16(obj.Id)] = obj
-	}
-	_reg = &Registry{
-		Objs: objs,
-	}
-	return _reg
 }
 
-func ConfigRegistry(paths ...string) *Registry {
-	_reg_lock.Lock()
-	defer _reg_lock.Unlock()
-	objs := make(map[uint16]*ObjectDefinition)
+func (r *Registry) Append(paths ...string) {
+	r.loadFromFS(_wrapFS{}, paths...)
+}
+
+func (r *Registry) GetObjectDefinition(id uint16) (*ObjectDefinition, error) {
+	r.mux.RLock()
+	defer r.mux.RUnlock()
+	if obj, ok := r.objs[id]; ok {
+		return obj, nil
+	}
+	return nil, ErrNotFound
+}
+
+func (r *Registry) loadFromFS(fsw _FS, paths ...string) {
+	r.mux.Lock()
+	defer r.mux.Unlock()
 	for _, p := range paths {
-		p = strings.TrimRight(p, "/")
-		files, err := os.ReadDir(p)
+		ft, err := fsw.Open(p)
 		if err != nil {
 			continue
 		}
-		for _, f := range files {
-			if f.IsDir() {
-				continue
-			}
-			content, err := os.ReadFile(p + "/" + f.Name())
+		defer ft.Close()
+		fi, err := ft.Stat()
+		if err != nil {
+			continue
+		}
+		if !fi.IsDir() {
+			content, err := fsw.ReadFile(p)
 			if err != nil {
 				continue
 			}
@@ -83,13 +94,40 @@ func ConfigRegistry(paths ...string) *Registry {
 			if err != nil {
 				continue
 			}
-			objs[uint16(obj.Id)] = obj
+			r.objs[obj.Id] = obj
+			continue
+		}
+		files, err := fsw.ReadDir(p)
+		if err != nil {
+			continue
+		}
+		for _, f := range files {
+			if f.IsDir() {
+				continue
+			}
+			content, err := fsw.ReadFile(filepath.Join(p, f.Name()))
+			if err != nil {
+				continue
+			}
+			obj, err := loadObjectDefinition(content)
+			if err != nil {
+				continue
+			}
+			r.objs[obj.Id] = obj
 		}
 	}
-	_reg = &Registry{
-		Objs: objs,
-	}
-	return _reg
+}
+
+func useDefaultRegistry() *Registry {
+	reg := newRegistry()
+	reg.loadFromFS(regDefaultDir, "definition")
+	return reg
+}
+
+func ConfigRegistry(paths ...string) *Registry {
+	reg := newRegistry()
+	reg.loadFromFS(_wrapFS{}, paths...)
+	return reg
 }
 
 func loadObjectDefinition(x []byte) (*ObjectDefinition, error) {

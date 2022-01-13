@@ -5,8 +5,7 @@ import (
 )
 
 // Dummy store
-type Dummy struct {
-}
+type Dummy struct{}
 
 // All device has the same key
 func (d *Dummy) PSKFromIdentity(hint []byte) ([]byte, error) {

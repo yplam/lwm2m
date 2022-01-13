@@ -7,16 +7,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/plgd-dev/go-coap/v2/udp"
-
 	piondtls "github.com/pion/dtls/v2"
-	coapdtls "github.com/plgd-dev/go-coap/v2/dtls"
-	"github.com/plgd-dev/go-coap/v2/udp/client"
-
-	"github.com/plgd-dev/go-coap/v2/net"
-
 	"github.com/pion/logging"
+	coapdtls "github.com/plgd-dev/go-coap/v2/dtls"
 	"github.com/plgd-dev/go-coap/v2/mux"
+	"github.com/plgd-dev/go-coap/v2/net"
+	"github.com/plgd-dev/go-coap/v2/udp"
+	"github.com/plgd-dev/go-coap/v2/udp/client"
 )
 
 var (

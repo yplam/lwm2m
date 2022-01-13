@@ -17,53 +17,39 @@ type Node interface {
 func NodeGetAllResources(nodes []Node, parentPath Path) (map[Path]*Resource, error) {
 	values := make(map[Path]*Resource)
 	for _, node := range nodes {
-		logrus.Debugf("node type %v", reflect.TypeOf(node).String())
+		//logrus.Infof("node type %v", reflect.TypeOf(node).String())
 		switch reflect.TypeOf(node).String() {
 		case "*lwm2m.Resource":
-			logrus.Debug("resource")
 			r, okay := node.(*Resource)
 			if !okay {
 				continue
 			}
-			if parentPath.IsResourceInstance() {
-				logrus.Debug("resource instance")
-				values[parentPath] = r
-			}
-			if parentPath.IsObjectInstance() {
-				logrus.Debug("object instance")
-				resourcePath := parentPath
-				resourcePath.resourceId = int32(r.ID())
-				values[resourcePath] = r
-			}
-
-		case "*lwm2m.Object":
-			logrus.Debug("object")
-			if !parentPath.IsRoot() {
+			if !r.path.IsChildOfOrEq(parentPath) {
 				continue
 			}
+			values[r.path] = r
+		case "*lwm2m.Object":
+			logrus.Debugf("object")
 			if n, okay := node.(*Object); okay {
 				for _, oi := range n.Instances {
 					for _, or := range oi.Resources {
-						p := NewResourcePath(n.Id, oi.Id, or.id)
-						values[p] = or
+						if !or.path.IsChildOfOrEq(parentPath) {
+							continue
+						}
+						values[or.path] = or
 					}
 				}
-				logrus.Infof("object (%v)", n.Id)
+				logrus.Debugf("object (%v)", n.Id)
 			}
 		case "*lwm2m.ObjectInstance":
-			logrus.Debug("ObjectInstance")
-			if !parentPath.IsObject() {
-				continue
-			}
-			objID, err := parentPath.ObjectId()
-			if err != nil {
-				continue
-			}
+			logrus.Debugf("ObjectInstance")
 			if n, okay := node.(*ObjectInstance); okay {
 				for _, or := range n.Resources {
-					logrus.Debugf("object instance resource %v", or.id)
-					p := NewResourcePath(objID, n.Id, or.id)
-					values[p] = or
+					if !or.path.IsChildOfOrEq(parentPath) {
+						continue
+					}
+					logrus.Debugf("resource %v", or)
+					values[or.path] = or
 				}
 				logrus.Debugf("object instance %v", n.Id)
 			}

@@ -51,15 +51,14 @@ func handleNotify(d *lwm2m.Device, p lwm2m.Path, notify []lwm2m.Node) {
 				log.Printf("%v", err)
 				return
 			}
-			r := lwm2m.NewResource(rid, false)
 			val, err := lwm2m.NodeGetResourceByPath(notify, p)
 			if err != nil {
 				log.Printf("%v", err)
 				return
 			}
 			log.Printf("get value OK %#v", val)
-			r.SetValue(val.Values[0])
-			td.Write(tp, r)
+			//r := lwm2m.NewRawResource(rid, val.data())
+			//td.Write(tp, r)
 		}
 	}
 }

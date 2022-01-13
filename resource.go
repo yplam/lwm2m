@@ -32,6 +32,10 @@ func (r *Resource) ID() uint16 {
 	return r.id
 }
 
+func (r *Resource) Data() []byte {
+	return r.data
+}
+
 func (r *Resource) String() string {
 	var b strings.Builder
 	b.WriteString("Resource { ")
@@ -111,9 +115,9 @@ func NewResource(p Path, isMultiple bool, data []byte) (r *Resource, err error) 
 		return
 	}
 	reg := GetRegistry()
-	objDef, ok := reg.Objs[objID]
-	if !ok {
-		return nil, ErrNotFound
+	objDef, err := reg.GetObjectDefinition(objID)
+	if err != nil {
+		return
 	}
 	resDef, ok := objDef.Resources[resID]
 	if !ok {

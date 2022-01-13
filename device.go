@@ -20,9 +20,10 @@ type Device struct {
 	Binding  string
 	Sms      string
 	Objs     map[uint16]*Object
+	S        *Server
 }
 
-type Observation = interface {
+type Observation interface {
 	Cancel(ctx context.Context) error
 }
 
@@ -40,8 +41,7 @@ func (d *Device) Observe(p Path, onMsg func(d *Device, p Path, notify []Node)) (
 			return
 		}
 		// call onMsg first, it may use old shadow value
-		go onMsg(d, p, m)
-		_ = d.updateValue(p, m...)
+		onMsg(d, p, m)
 	}, message.Option{
 		ID:    message.Accept,
 		Value: buf[:l],
@@ -52,21 +52,15 @@ func (d *Device) Write(p Path, vals ...Node) {
 	buf := make([]byte, 2)
 	l, _ := message.EncodeUint32(buf, uint32(message.AppLwm2mTLV))
 	msg, _ := EncodeMessage(message.AppLwm2mTLV, vals)
-	_, _ = d.client.Put(context.Background(), p.String(), message.AppLwm2mTLV, msg,
+	logrus.Debugf("write %v", msg)
+	_, err := d.client.Put(context.Background(), p.String(), message.AppLwm2mTLV, msg,
 		message.Option{
 			ID:    message.Accept,
 			Value: buf[:l],
 		})
-	_ = d.updateValue(p, vals...)
-}
-
-// Value Return last shadow value of Path
-func (d *Device) Value(p Path) (Node, error) {
-	return nil, nil
-}
-
-func (d *Device) updateValue(p Path, vals ...Node) error {
-	return nil
+	if err != nil {
+		logrus.Warnf("put error %v", err)
+	}
 }
 
 func (d *Device) ParseCoreLinks(links []*CoreLink) {

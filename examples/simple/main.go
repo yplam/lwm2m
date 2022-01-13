@@ -6,12 +6,11 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-
-	"golang.org/x/net/ipv6"
+	"time"
 
 	"github.com/sirupsen/logrus"
-
 	"github.com/yplam/lwm2m"
+	"golang.org/x/net/ipv6"
 )
 
 var (
@@ -24,6 +23,18 @@ func handleNotify(d *lwm2m.Device, p lwm2m.Path, notify []lwm2m.Node) {
 	if err != nil {
 		logrus.Warnf("read val err (%v), (%v)", p.String(), err)
 	} else {
+		sp := lwm2m.NewResourcePath(3303, 0, 5700)
+		if v, ok := val[sp]; ok {
+			logrus.Info("...get from 3303/0/5700")
+			spn := lwm2m.NewResourcePath(32769, 0, 26241)
+			if nr, err := lwm2m.NewResource(spn, false, v.Data()); err == nil {
+				go func(r *lwm2m.Resource) {
+					<-time.After(time.Second)
+					d.Write(spn, r)
+				}(nr)
+			}
+
+		}
 		logrus.Infof("get val from (%v)", p)
 		for k, v := range val {
 			logrus.Infof("(%v), (%v)", k, v)
@@ -47,7 +58,7 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	logrus.SetLevel(logrus.DebugLevel)
 	logrus.Info("starting lwm2m server")
-
+	lwm2m.GetRegistry().Append("custom")
 	s := lwm2m.NewServer(
 		lwm2m.WithOnNewDeviceConn(onDeviceConn),
 		lwm2m.EnableUDPListener("udp6", ":5683"),
