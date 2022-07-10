@@ -2,8 +2,11 @@ package lwm2m
 
 import (
 	"context"
+	"errors"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/plgd-dev/go-coap/v2/message"
 	"github.com/plgd-dev/go-coap/v2/mux"
@@ -12,55 +15,112 @@ import (
 
 // Device is a LWM2M Device connected to server
 type Device struct {
-	ID       string
-	EndPoint string
-	Version  string
-	Lifetime int
-	client   mux.Client
-	Binding  string
-	Sms      string
-	Objs     map[uint16]*Object
-	S        *Server
+	ID           string
+	EndPoint     string
+	Version      string
+	Lifetime     int
+	client       mux.Client
+	Binding      string
+	Sms          string
+	Objs         map[uint16]Object
+	S            *Server
+	Observations map[Path]Observation
 }
 
-type Observation interface {
-	Cancel(ctx context.Context) error
+type ObserveFunc func(d *Device, p Path, notify []Node)
+
+type Observation struct {
+	o  mux.Observation
+	cb ObserveFunc
 }
 
-func (d *Device) Observe(p Path, onMsg func(d *Device, p Path, notify []Node)) (Observation, error) {
-	// 2 bytes length
-	buf := make([]byte, 2)
-	l, err := message.EncodeUint32(buf, uint32(message.AppLwm2mTLV))
-	if err != nil {
-		// should not happen
-		return nil, err
-	}
-	return d.client.Observe(context.Background(), p.String(), func(notification *message.Message) {
-		m, err := DecodeMessage(message.AppLwm2mTLV, p, notification.Body)
-		if err != nil {
-			return
-		}
-		// call onMsg first, it may use old shadow value
-		onMsg(d, p, m)
-	}, message.Option{
-		ID:    message.Accept,
-		Value: buf[:l],
-	})
-}
+var (
+	_tlvAcceptOption     message.Option
+	_tlvAcceptOptionOnce sync.Once
+)
 
-func (d *Device) Write(p Path, vals ...Node) {
-	buf := make([]byte, 2)
-	l, _ := message.EncodeUint32(buf, uint32(message.AppLwm2mTLV))
-	msg, _ := EncodeMessage(message.AppLwm2mTLV, vals)
-	logrus.Debugf("write %v", msg)
-	_, err := d.client.Put(context.Background(), p.String(), message.AppLwm2mTLV, msg,
-		message.Option{
+func _acceptOption() message.Option {
+	_tlvAcceptOptionOnce.Do(func() {
+		buf := make([]byte, 2)
+		l, _ := message.EncodeUint32(buf, uint32(message.AppLwm2mTLV))
+		_tlvAcceptOption = message.Option{
 			ID:    message.Accept,
 			Value: buf[:l],
-		})
-	if err != nil {
-		logrus.Warnf("put error %v", err)
+		}
+	})
+	return _tlvAcceptOption
+}
+
+func (d *Device) AddObservation(p Path, onMsg ObserveFunc) {
+	d.RemoveObservation(p)
+	d.Observations[p] = Observation{
+		o:  nil,
+		cb: onMsg,
 	}
+}
+
+func (d *Device) RemoveObservation(p Path) {
+	if o, ok := d.Observations[p]; ok {
+		if o.o != nil {
+			o.o.Cancel(context.Background())
+		}
+		delete(d.Observations, p)
+	}
+}
+
+func (d *Device) ProcessObservation() {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	defer cancel()
+	for k, v := range d.Observations {
+		if v.o == nil {
+			no, err := d.client.Observe(ctx, k.String(), func(notification *message.Message) {
+				if notification.Body == nil {
+					return
+				}
+				m, err := DecodeMessage(message.AppLwm2mTLV, k, notification.Body)
+				if err != nil {
+					return
+				}
+				// call onMsg first, it may use old shadow value
+				d.Observations[k].cb(d, k, m)
+			}, _acceptOption())
+			if err != nil {
+				logrus.Warnf("observe %v error %v", k, err)
+			} else {
+				logrus.Infof("observe %v ok", k)
+				v.o = no
+				d.Observations[k] = v
+				return
+			}
+		}
+	}
+}
+
+func (d *Device) Read(ctx context.Context, p Path) ([]Node, error) {
+	msg, err := d.client.Get(ctx, p.String(), _acceptOption())
+	if err != nil {
+		return nil, err
+	}
+	if msg.Body == nil {
+		return nil, errors.New("empty body")
+	}
+	return DecodeMessage(message.AppLwm2mTLV, p, msg.Body)
+}
+
+func (d *Device) Write(ctx context.Context, p Path, vals ...Node) error {
+	msg, _ := EncodeMessage(message.AppLwm2mTLV, vals)
+	logrus.Debugf("write %v", msg)
+	_, err := d.client.Put(ctx, p.String(), message.AppLwm2mTLV, msg,
+		_acceptOption())
+	return err
+}
+
+func (d *Device) onUpdate() {
+	d.ProcessObservation()
+}
+
+func (d *Device) DeRegister() error {
+	return d.S.DeRegister(d.ID)
 }
 
 func (d *Device) ParseCoreLinks(links []*CoreLink) {
@@ -93,4 +153,21 @@ func (d *Device) HasObject(id uint16) bool {
 		return true
 	}
 	return false
+}
+
+func (d *Device) HasObjectWithInstance(id uint16) bool {
+	if _, okay := d.Objs[id]; okay {
+		return len(d.Objs[id].Instances) > 0
+	}
+	return false
+}
+
+func (d *Device) HasObjectInstance(id, iid uint16) bool {
+	if _, okay := d.Objs[id]; !okay {
+		return false
+	}
+	if _, okay := d.Objs[id].Instances[iid]; !okay {
+		return false
+	}
+	return true
 }

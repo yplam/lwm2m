@@ -19,8 +19,7 @@ func (l loggerFactory) NewLogger(scope string) logging.LeveledLogger {
 }
 
 func NewDefaultLoggerFactory() logging.LoggerFactory {
-	l := logrus.New()
-	l.SetLevel(logrus.DebugLevel)
+	l := logrus.StandardLogger()
 	return &loggerFactory{
 		log: l,
 	}

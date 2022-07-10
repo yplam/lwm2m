@@ -13,11 +13,11 @@ type Resource struct {
 	isMultiple bool
 	resType    ResourceType
 	data       []byte
-	instances  map[uint16]*Resource
+	instances  map[uint16]Resource
 	path       Path
 }
 
-func (r *Resource) addInstance(val *Resource) {
+func (r Resource) addInstance(val Resource) {
 	if !val.path.IsResourceInstance() {
 		return
 	}
@@ -28,15 +28,15 @@ func (r *Resource) addInstance(val *Resource) {
 	r.instances[riid] = val
 }
 
-func (r *Resource) ID() uint16 {
+func (r Resource) ID() uint16 {
 	return r.id
 }
 
-func (r *Resource) Data() []byte {
+func (r Resource) Data() []byte {
 	return r.data
 }
 
-func (r *Resource) String() string {
+func (r Resource) String() string {
 	var b strings.Builder
 	b.WriteString("Resource { ")
 	b.WriteString(fmt.Sprintf("id: %v, ", r.id))
@@ -54,7 +54,11 @@ func (r *Resource) String() string {
 	return b.String()
 }
 
-func (r *Resource) Value() interface{} {
+func (r Resource) StringValue() string {
+	return fmt.Sprintf("%v", r.Value())
+}
+
+func (r Resource) Value() interface{} {
 	switch r.resType {
 	case R_NONE:
 		return r.data
@@ -72,7 +76,7 @@ func (r *Resource) Value() interface{} {
 	return nil
 }
 
-func (r *Resource) Float() float64 {
+func (r Resource) Float() float64 {
 	if len(r.data) == 4 {
 		return float64(math.Float32frombits(binary.BigEndian.Uint32(r.data)))
 	} else if len(r.data) == 8 {
@@ -82,7 +86,7 @@ func (r *Resource) Float() float64 {
 	}
 }
 
-func (r *Resource) Integer() (val int64) {
+func (r Resource) Integer() (val int64) {
 	buff := bytes.NewBuffer(r.data)
 	l := len(r.data)
 	if l == 1 {
@@ -105,7 +109,7 @@ func (r *Resource) Integer() (val int64) {
 	return
 }
 
-func NewResource(p Path, isMultiple bool, data []byte) (r *Resource, err error) {
+func NewResource(p Path, isMultiple bool, data []byte) (r Resource, err error) {
 	objID, err := p.ObjectId()
 	if err != nil {
 		return
@@ -121,14 +125,15 @@ func NewResource(p Path, isMultiple bool, data []byte) (r *Resource, err error) 
 	}
 	resDef, ok := objDef.Resources[resID]
 	if !ok {
-		return nil, ErrNotFound
+		err = ErrNotFound
+		return
 	}
-	r = &Resource{
+	r = Resource{
 		id:         resID,
 		isMultiple: isMultiple,
 		resType:    resDef.Type,
 		data:       data,
-		instances:  make(map[uint16]*Resource),
+		instances:  make(map[uint16]Resource),
 		path:       p,
 	}
 	return

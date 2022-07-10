@@ -14,13 +14,13 @@ type Node interface {
 	String() string
 }
 
-func NodeGetAllResources(nodes []Node, parentPath Path) (map[Path]*Resource, error) {
-	values := make(map[Path]*Resource)
+func NodeGetAllResources(nodes []Node, parentPath Path) (map[Path]Resource, error) {
+	values := make(map[Path]Resource)
 	for _, node := range nodes {
 		//logrus.Infof("node type %v", reflect.TypeOf(node).String())
 		switch reflect.TypeOf(node).String() {
-		case "*lwm2m.Resource":
-			r, okay := node.(*Resource)
+		case "lwm2m.Resource":
+			r, okay := node.(Resource)
 			if !okay {
 				continue
 			}
@@ -28,9 +28,9 @@ func NodeGetAllResources(nodes []Node, parentPath Path) (map[Path]*Resource, err
 				continue
 			}
 			values[r.path] = r
-		case "*lwm2m.Object":
-			logrus.Debugf("object")
-			if n, okay := node.(*Object); okay {
+		case "lwm2m.Object":
+			//logrus.Debugf("object")
+			if n, okay := node.(Object); okay {
 				for _, oi := range n.Instances {
 					for _, or := range oi.Resources {
 						if !or.path.IsChildOfOrEq(parentPath) {
@@ -39,19 +39,19 @@ func NodeGetAllResources(nodes []Node, parentPath Path) (map[Path]*Resource, err
 						values[or.path] = or
 					}
 				}
-				logrus.Debugf("object (%v)", n.Id)
+				//logrus.Debugf("object (%v)", n.Id)
 			}
-		case "*lwm2m.ObjectInstance":
-			logrus.Debugf("ObjectInstance")
-			if n, okay := node.(*ObjectInstance); okay {
+		case "lwm2m.ObjectInstance":
+			//logrus.Debugf("ObjectInstance")
+			if n, okay := node.(ObjectInstance); okay {
 				for _, or := range n.Resources {
 					if !or.path.IsChildOfOrEq(parentPath) {
 						continue
 					}
-					logrus.Debugf("resource %v", or)
+					//logrus.Debugf("resource %v", or)
 					values[or.path] = or
 				}
-				logrus.Debugf("object instance %v", n.Id)
+				//logrus.Debugf("object instance %v", n.Id)
 			}
 		default:
 			logrus.Warnf("unhandle node type (%v)", reflect.TypeOf(node).String())
@@ -63,33 +63,38 @@ func NodeGetAllResources(nodes []Node, parentPath Path) (map[Path]*Resource, err
 	return values, nil
 }
 
-func NodeGetResourceByPath(nodes []Node, p Path) (*Resource, error) {
+func NodeGetResourceByPath(nodes []Node, p Path) (r Resource, err error) {
 	if !p.IsResource() {
-		return nil, ErrPathNotMatch
+		err = ErrPathNotMatch
+		return
 	}
 	oid, err := p.ObjectId()
 	if err != nil {
-		return nil, ErrPathNotMatch
+		err = ErrPathNotMatch
+		return
 	}
 	iid, err := p.ObjectInstanceId()
 	if err != nil {
-		return nil, ErrPathNotMatch
+		err = ErrPathNotMatch
+		return
 	}
 	rid, err := p.ResourceId()
 	if err != nil {
-		return nil, ErrPathNotMatch
+		err = ErrPathNotMatch
+		return
 	}
 	for _, node := range nodes {
 		switch reflect.TypeOf(node).String() {
-		case "*lwm2m.Resource":
-			if n, okay := node.(*Resource); okay {
+		case "lwm2m.Resource":
+			if n, okay := node.(Resource); okay {
 				if rid != node.ID() {
 					continue
 				}
-				return n, nil
+				r = n
+				return
 			}
-		case "*lwm2m.Object":
-			if n, okay := node.(*Object); okay {
+		case "lwm2m.Object":
+			if n, okay := node.(Object); okay {
 				if oid != node.ID() {
 					continue
 				}
@@ -101,10 +106,11 @@ func NodeGetResourceByPath(nodes []Node, p Path) (*Resource, error) {
 				if !okay {
 					continue
 				}
-				return ri, nil
+				r = ri
+				return
 			}
-		case "*lwm2m.ObjectInstance":
-			if n, okay := node.(*ObjectInstance); okay {
+		case "lwm2m.ObjectInstance":
+			if n, okay := node.(ObjectInstance); okay {
 				if iid != node.ID() {
 					continue
 				}
@@ -112,11 +118,13 @@ func NodeGetResourceByPath(nodes []Node, p Path) (*Resource, error) {
 				if !okay {
 					continue
 				}
-				return ri, nil
+				r = ri
+				return
 			}
 		default:
 			logrus.Warnf("unhandle node type (%v)", reflect.TypeOf(node).String())
 		}
 	}
-	return nil, ErrNodeNotFound
+	err = ErrNodeNotFound
+	return
 }

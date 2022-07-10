@@ -37,7 +37,7 @@ func (r *Registration) ServeCOAP(w mux.ResponseWriter, m *mux.Message) {
 		id := string(m.Options[firstIdx+1].Value)
 		// handle update
 		if m.Code == codes.POST {
-			r.log.Debug("handle update")
+			r.log.Debugf("handle update %v", id)
 			r.handleUpdate(w, m, id)
 		} else if m.Code == codes.DELETE {
 			r.log.Debug("handle delete")
@@ -158,7 +158,7 @@ func (r *Registration) handleUpdate(w mux.ResponseWriter, m *mux.Message, id str
 			links, _ = CoreLinksFromString(string(b))
 		}
 	}
-	err = r.s.Update(id, lifetime, binding, smsNumber, links)
+	err = r.s.Update(id, lifetime, binding, smsNumber, links, w.Client())
 	if err != nil {
 		_ = w.SetResponse(codes.NotFound, message.TextPlain, nil)
 		return
@@ -176,9 +176,6 @@ func (r *Registration) handleDelete(w mux.ResponseWriter, m *mux.Message, id str
 		_ = w.SetResponse(codes.Deleted, message.TextPlain, nil)
 	}
 	_ = r.s.DeRegister(id)
-	if c := w.Client(); c != nil {
-		_ = c.Close()
-	}
 }
 
 func NewRegistration(s *Server, l logging.LeveledLogger) *Registration {

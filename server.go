@@ -50,12 +50,15 @@ func (s *Server) DeRegister(id string) error {
 }
 
 func (s *Server) deRegister(id string) error {
-	old := s.getByID(id)
-	if old == nil {
+	d := s.getByID(id)
+	if d == nil {
 		return ErrDeviceNotFound
 	}
+	if d.client != nil {
+		d.client.Close()
+	}
 	delete(s.devices, id)
-	delete(s.epToID, old.EndPoint)
+	delete(s.epToID, d.EndPoint)
 	return nil
 }
 
@@ -67,14 +70,16 @@ func (s *Server) Register(ep string, lifetime int, version string, binding strin
 		_ = s.deRegister(id)
 	}
 	d := &Device{
-		ID:       s.generateRegId(),
-		EndPoint: ep,
-		Version:  version,
-		Lifetime: lifetime,
-		client:   client,
-		Binding:  binding,
-		Sms:      sms,
-		Objs:     make(map[uint16]*Object),
+		ID:           s.generateRegId(),
+		EndPoint:     ep,
+		Version:      version,
+		Lifetime:     lifetime,
+		client:       client,
+		Binding:      binding,
+		Sms:          sms,
+		Objs:         make(map[uint16]Object),
+		S:            s,
+		Observations: make(map[Path]Observation),
 	}
 	d.ParseCoreLinks(links)
 	s.devices[d.ID] = d
@@ -83,14 +88,17 @@ func (s *Server) Register(ep string, lifetime int, version string, binding strin
 }
 
 func (s *Server) PostRegister(id string) {
-	d := s.GetByID(id)
-	if d == nil {
-		return
-	}
 	if s.onNewDeviceConn != nil {
-		s.onNewDeviceConn(d)
+		go func(id string) {
+			time.Sleep(time.Second)
+			d := s.GetByID(id)
+			if d == nil {
+				return
+			}
+			s.onNewDeviceConn(d)
+			s.log.Debug("after device register")
+		}(id)
 	}
-	s.log.Debug("after device register")
 }
 
 func (s *Server) PostUpdate(id string) {
@@ -98,7 +106,7 @@ func (s *Server) PostUpdate(id string) {
 }
 
 func (s *Server) Update(id string, lifetime int, binding string, sms string,
-	links []*CoreLink) error {
+	links []*CoreLink, client mux.Client) error {
 	d, ok := s.devices[id]
 	if !ok {
 		return ErrDeviceNotFound
@@ -115,6 +123,8 @@ func (s *Server) Update(id string, lifetime int, binding string, sms string,
 	if links != nil {
 		d.ParseCoreLinks(links)
 	}
+	d.client = client
+	d.onUpdate()
 	return nil
 }
 
@@ -192,7 +202,9 @@ func (s *Server) ListenAndServeUDP(ctx context.Context, c chan struct{}, r *mux.
 		return
 	}
 	defer l.Close()
-	us := udp.NewServer(udp.WithMux(r))
+	us := udp.NewServer(
+		udp.WithTransmission(10*time.Second, 10*time.Second, 4),
+		udp.WithMux(r))
 	go func() {
 		s.log.Errorf("udp server stopped (%v)", us.Serve(l))
 		c <- struct{}{}
