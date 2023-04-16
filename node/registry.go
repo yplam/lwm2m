@@ -1,4 +1,4 @@
-package lwm2m
+package node
 
 // ref http://openmobilealliance.org/tech/profiles/LWM2M.xsd
 
@@ -14,11 +14,6 @@ import (
 
 //go:embed definition/*.xml
 var regDefaultDir embed.FS
-
-var (
-	_reg      *Registry
-	_reg_once sync.Once
-)
 
 type _FS interface {
 	fs.ReadFileFS
@@ -44,13 +39,6 @@ var _ _FS = (*_wrapFS)(nil)
 type Registry struct {
 	objs map[uint16]*ObjectDefinition
 	mux  sync.RWMutex
-}
-
-func GetRegistry() *Registry {
-	_reg_once.Do(func() {
-		_reg = useDefaultRegistry()
-	})
-	return _reg
 }
 
 func newRegistry() *Registry {
@@ -118,7 +106,7 @@ func (r *Registry) loadFromFS(fsw _FS, paths ...string) {
 	}
 }
 
-func useDefaultRegistry() *Registry {
+func DefaultRegistry() *Registry {
 	reg := newRegistry()
 	reg.loadFromFS(regDefaultDir, "definition")
 	return reg
@@ -136,7 +124,7 @@ func loadObjectDefinition(x []byte) (*ObjectDefinition, error) {
 		return nil, err
 	}
 	xo := xx.Object
-	if xo.ObjectID < 0 {
+	if xo.ObjectID <= 0 {
 		return nil, errors.New("no object definition found")
 	}
 	var res = make(map[uint16]*ResourceDefinition)

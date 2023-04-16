@@ -1,4 +1,4 @@
-package lwm2m
+package node
 
 import (
 	"testing"
@@ -7,7 +7,7 @@ import (
 )
 
 func TestDefaultRegistry(t *testing.T) {
-	reg := GetRegistry()
+	reg := DefaultRegistry()
 	validateRegistryTest(t, reg)
 }
 
@@ -17,7 +17,7 @@ func TestNewRegistry(t *testing.T) {
 }
 
 func validateRegistryTest(t *testing.T, reg *Registry) {
-	assert.Equal(t, len(reg.objs), 288)
+	assert.Equal(t, len(reg.objs), 287)
 	assert.Equal(t, reg.objs[3].Name, "Device")
 }
 

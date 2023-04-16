@@ -1,4 +1,4 @@
-package lwm2m
+package tlv
 
 import (
 	"encoding/hex"

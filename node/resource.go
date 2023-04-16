@@ -1,4 +1,4 @@
-package lwm2m
+package node
 
 import (
 	"bytes"
@@ -17,7 +17,7 @@ type Resource struct {
 	path       Path
 }
 
-func (r Resource) addInstance(val Resource) {
+func (r Resource) AddInstance(val Resource) {
 	if !val.path.IsResourceInstance() {
 		return
 	}
@@ -109,35 +109,36 @@ func (r Resource) Integer() (val int64) {
 	return
 }
 
-func NewResource(p Path, isMultiple bool, data []byte) (r Resource, err error) {
-	objID, err := p.ObjectId()
-	if err != nil {
-		return
-	}
-	resID, err := p.ResourceId()
-	if err != nil {
-		return
-	}
-	reg := GetRegistry()
-	objDef, err := reg.GetObjectDefinition(objID)
-	if err != nil {
-		return
-	}
-	resDef, ok := objDef.Resources[resID]
-	if !ok {
-		err = ErrNotFound
-		return
-	}
-	r = Resource{
-		id:         resID,
-		isMultiple: isMultiple,
-		resType:    resDef.Type,
-		data:       data,
-		instances:  make(map[uint16]Resource),
-		path:       p,
-	}
-	return
-}
+//
+//func NewResource(p Path, isMultiple bool, data []byte) (r Resource, err error) {
+//	objID, err := p.ObjectId()
+//	if err != nil {
+//		return
+//	}
+//	resID, err := p.ResourceId()
+//	if err != nil {
+//		return
+//	}
+//	reg := GetRegistry()
+//	objDef, err := reg.GetObjectDefinition(objID)
+//	if err != nil {
+//		return
+//	}
+//	resDef, ok := objDef.Resources[resID]
+//	if !ok {
+//		err = ErrNotFound
+//		return
+//	}
+//	r = Resource{
+//		id:         resID,
+//		isMultiple: isMultiple,
+//		resType:    resDef.Type,
+//		data:       data,
+//		instances:  make(map[uint16]Resource),
+//		path:       p,
+//	}
+//	return
+//}
 
 type ResourceOperations byte
 

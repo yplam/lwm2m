@@ -1,4 +1,4 @@
-package lwm2m
+package node
 
 import (
 	"fmt"

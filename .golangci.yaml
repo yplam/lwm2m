@@ -1,0 +1,14 @@
+linters:
+  disable-all: true
+  enable:
+    - unused
+    - ineffassign
+    - staticcheck
+
+linters-settings:
+  staticcheck:
+    go: "1.18"
+    checks: [
+      "all",
+      "-ST1*"
+    ]

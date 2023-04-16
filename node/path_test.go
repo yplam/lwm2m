@@ -1,4 +1,4 @@
-package lwm2m
+package node
 
 import (
 	"github.com/stretchr/testify/assert"
