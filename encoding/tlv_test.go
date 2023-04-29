@@ -1,4 +1,4 @@
-package tlv
+package encoding
 
 import (
 	"encoding/hex"
@@ -47,7 +47,7 @@ func TestSingleObjectTLV(t *testing.T) {
 	data, err := _strToByte(str)
 	assert.Nil(t, err)
 	//log.Printf("%#v", data)
-	v, err := DecodeTLVs(data)
+	v, err := DecodeTlv(data)
 	assert.Nil(t, err)
 	//e, _ := json.MarshalIndent(v, "", "\t")
 	//t.Logf("%v", string(e))
@@ -57,9 +57,9 @@ func TestSingleObjectTLV(t *testing.T) {
 	assert.Equal(t, len(v[6].Children), 2)
 	assert.Equal(t, len(v[9].Children), 1)
 
-	s, _ := v[0].String()
+	s := v[0].String()
 	assert.Equal(t, s, "Open Mobile Alliance")
-	s, _ = v[1].String()
+	s = v[1].String()
 	assert.Equal(t, s, "Lightweight M2M Client")
 
 	i8, err := v[7].Integer()
@@ -112,7 +112,7 @@ C1 10 55
 	data, err := _strToByte(str)
 	assert.Nil(t, err)
 	//log.Printf("%#v", data)
-	v, err := DecodeTLVs(data)
+	v, err := DecodeTlv(data)
 	//e, _ := json.MarshalIndent(v, "", "\t")
 	//t.Logf("%v", string(e))
 	assert.Nil(t, err)
@@ -137,7 +137,7 @@ C1 03 7F
 	data, err := _strToByte(str)
 	assert.Nil(t, err)
 	//log.Printf("%#v", data)
-	v, err := DecodeTLVs(data)
+	v, err := DecodeTlv(data)
 	assert.Nil(t, err)
 	assert.Equal(t, len(v), 2)
 	assert.Equal(t, len(v[0].Children), 4)
@@ -154,7 +154,7 @@ C1 07 55
 	data, err = _strToByte(str)
 	assert.Nil(t, err)
 	//log.Printf("%#v", data)
-	_, err = DecodeTLVs(data)
+	_, err = DecodeTlv(data)
 	assert.Nil(t, err)
 }
 
@@ -169,7 +169,7 @@ C4 02 12 34 56 78
 	data, err := _strToByte(str)
 	assert.Nil(t, err)
 	//log.Printf("%#v", data)
-	_, err = DecodeTLVs(data)
+	_, err = DecodeTlv(data)
 	assert.Nil(t, err)
 
 	str = `
@@ -185,15 +185,15 @@ C4 02 FF FF FF FF
 	data, err = _strToByte(str)
 	assert.Nil(t, err)
 	//log.Printf("%#v", data)
-	_, err = DecodeTLVs(data)
+	_, err = DecodeTlv(data)
 	assert.Nil(t, err)
 
 }
 
 func TestSimpleEncodeDecode(t *testing.T) {
 	data := []byte{0xe1, 0x15, 0x7c, 0x0}
-	tlvs, err := DecodeTLVs(data)
+	tlvs, err := DecodeTlv(data)
 	assert.Nil(t, err)
-	data2 := EncodeTLVs(tlvs)
+	data2 := EncodeTlv(tlvs)
 	assert.Equal(t, data, data2)
 }

@@ -1,4 +1,4 @@
-package core
+package encoding
 
 import (
 	"github.com/stretchr/testify/assert"

@@ -1,8 +1,20 @@
 package encoding
 
-//package encoding
+type Valuer interface {
+	StringVal() string
+	Integer() (val int64, err error)
+	Float() (float64, error)
+	Boolean() (val bool, err error)
+	Opaque() []byte
+	Time() (int64, error)
+	ObjectLink() (uint16, uint16, error)
+	Raw() []byte
+}
+
+// package encoding
 //
-//import (
+// import (
+//
 //	"bytes"
 //	"errors"
 //	"github.com/plgd-dev/go-coap/v3/message"
@@ -11,51 +23,55 @@ package encoding
 //	"io"
 //	"io/ioutil"
 //	"reflect"
-//)
 //
-//var (
+// )
+//
+// var (
+//
 //	ErrEmpty = errors.New("empty")
-//)
 //
-//func EncodeMessage(t message.MediaType, node []node.Node) (io.ReadSeeker, error) {
-//	if len(node) == 0 {
+// )
+//
+//	func EncodeMessage(t message.MediaType, node []node.Node) (io.ReadSeeker, error) {
+//		if len(node) == 0 {
+//			return nil, ErrEmpty
+//		}
+//		switch t {
+//		case message.AppLwm2mTLV:
+//			tlvs, err := nodesToTlvs(node)
+//			if err != nil {
+//				return nil, err
+//			}
+//			c := tlv.EncodeTLVs(tlvs)
+//			//log.Printf("send: %#v", c)
+//			return bytes.NewReader(c), nil
+//		}
 //		return nil, ErrEmpty
 //	}
-//	switch t {
-//	case message.AppLwm2mTLV:
-//		tlvs, err := nodesToTlvs(node)
-//		if err != nil {
-//			return nil, err
-//		}
-//		c := tlv.EncodeTLVs(tlvs)
-//		//log.Printf("send: %#v", c)
-//		return bytes.NewReader(c), nil
-//	}
-//	return nil, ErrEmpty
-//}
-//
 //func DecodeMessage(t message.MediaType, p node.Path, msg io.ReadSeeker) ([]node.Node, error) {
-//	c, err := ioutil.ReadAll(msg)
+//c, err := ioutil.ReadAll(msg)
+//if err != nil {
+//	return nil, err
+//}
+//switch t {
+//case message.AppLwm2mTLV:
+//	tlvs, err := tlv.DecodeTLVs(c)
 //	if err != nil {
 //		return nil, err
 //	}
-//	switch t {
-//	case message.AppLwm2mTLV:
-//		tlvs, err := tlv.DecodeTLVs(c)
-//		if err != nil {
-//			return nil, err
-//		}
-//		return decodeTLVMessage(p, tlvs)
-//	}
-//	return nil, ErrEmpty
+//	return decodeTLVMessage(p, tlvs)
 //}
+//return nil, ErrEmpty
+//return nil, nil
+//}
+
 //
 //func decodeTLVMessage(p node.Path, tlvs []*tlv.Encoding) ([]node.Node, error) {
 //	//logrus.Debugf("decode path %v", p.String())
 //	var curInstanceId uint16 = 0
 //	nodes := make([]node.Node, 0)
 //	for _, item := range tlvs {
-//		switch item.Type {
+//		switch item.EventType {
 //		case tlv.ObjectInstance:
 //			n := node.NewObjectInstance(item.Identifier)
 //			if len(item.Children) > 0 {

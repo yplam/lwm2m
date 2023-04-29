@@ -12,33 +12,98 @@ import (
 	"sync"
 )
 
-//go:embed definition/*.xml
-var regDefaultDir embed.FS
+var (
+	_registryOnce   sync.Once
+	_globalRegistry *Registry
+)
 
-type _FS interface {
-	fs.ReadFileFS
-	fs.ReadDirFS
+type ResourceOperations byte
+
+var (
+	OP_NONE ResourceOperations = 0
+	OP_R    ResourceOperations = 1
+	OP_W    ResourceOperations = 2
+	OP_RW   ResourceOperations = 3
+	OP_E    ResourceOperations = 4
+)
+
+type ResourceType byte
+
+func (r ResourceType) String() string {
+	switch r {
+	case R_NONE:
+		return "R_NONE"
+	case R_STRING:
+		return "R_STRING"
+	case R_INTEGER:
+		return "R_INTEGER"
+	case R_FLOAT:
+		return "R_FLOAT"
+	case R_BOOLEAN:
+		return "R_BOOLEAN"
+	case R_OPAQUE:
+		return "R_OPAQUE"
+	case R_TIME:
+		return "R_TIME"
+	case R_OBJLNK:
+		return "R_OBJLNK"
+	default:
+		return ""
+	}
 }
 
-type _wrapFS struct{}
+var (
+	R_NONE    ResourceType = 0
+	R_STRING  ResourceType = 1
+	R_INTEGER ResourceType = 2
+	R_FLOAT   ResourceType = 3
+	R_BOOLEAN ResourceType = 4
+	R_OPAQUE  ResourceType = 5
+	R_TIME    ResourceType = 6
+	R_OBJLNK  ResourceType = 7
+)
 
-func (_ _wrapFS) Open(name string) (fs.File, error) {
-	return os.Open(name)
+type ResourceDefinition struct {
+	ID          uint16
+	Name        string
+	Description string
+	Operations  ResourceOperations
+	Multiple    bool
+	Mandatory   bool
+	Type        ResourceType
 }
 
-func (_ _wrapFS) ReadFile(name string) ([]byte, error) {
-	return os.ReadFile(name)
+type ObjectDefinition struct {
+	Id           uint16
+	Name         string
+	Description  string
+	Multiple     bool
+	Mandatory    bool
+	Version      string
+	LWM2MVersion string
+	URN          string
+	Resources    map[uint16]*ResourceDefinition
 }
-
-func (_ _wrapFS) ReadDir(name string) ([]fs.DirEntry, error) {
-	return os.ReadDir(name)
-}
-
-var _ _FS = (*_wrapFS)(nil)
 
 type Registry struct {
 	objs map[uint16]*ObjectDefinition
 	mux  sync.RWMutex
+}
+
+func GetRegistry() *Registry {
+	_registryOnce.Do(func() {
+		_globalRegistry = newRegistry()
+		_globalRegistry.loadFromFS(regDefaultDir, "definition")
+	})
+	return _globalRegistry
+}
+
+func ConfigRegistry(paths ...string) *Registry {
+	_registryOnce.Do(func() {
+		_globalRegistry = newRegistry()
+		_globalRegistry.loadFromFS(_wrapFS{}, paths...)
+	})
+	return _globalRegistry
 }
 
 func newRegistry() *Registry {
@@ -106,16 +171,16 @@ func (r *Registry) loadFromFS(fsw _FS, paths ...string) {
 	}
 }
 
-func DefaultRegistry() *Registry {
-	reg := newRegistry()
-	reg.loadFromFS(regDefaultDir, "definition")
-	return reg
-}
-
-func ConfigRegistry(paths ...string) *Registry {
-	reg := newRegistry()
-	reg.loadFromFS(_wrapFS{}, paths...)
-	return reg
+func (r *Registry) DetectResourceType(p Path) (ResourceType, error) {
+	if !(p.IsResource() || p.IsResourceInstance()) {
+		return R_NONE, ErrPathInvalidValue
+	}
+	if o, ok := r.objs[uint16(p.objectId)]; ok {
+		if r, ok := o.Resources[uint16(p.resourceId)]; ok {
+			return r.Type, nil
+		}
+	}
+	return R_NONE, ErrNotFound
 }
 
 func loadObjectDefinition(x []byte) (*ObjectDefinition, error) {
@@ -195,14 +260,14 @@ type xLWM2M struct {
 	Object xObjectDefinition
 }
 
-//<Name>Temperature</Name>
-//<Description1>This IPSO object should be used with a temperature sensor to report a temperature measurement.  It also provides resources for minimum/maximum measured values and the minimum/maximum range that can be measured by the temperature sensor. An example measurement unit is degrees Celsius.</Description1>
-//<ObjectID>3303</ObjectID>
-//<ObjectURN>urn:oma:github.com/yplam/lwm2m:ext:3303:1.1</ObjectURN>
-//<LWM2MVersion>1.0</LWM2MVersion>
-//<ObjectVersion>1.1</ObjectVersion>
-//<MultipleInstances>Multiple</MultipleInstances>
-//<Mandatory>Optional</Mandatory>
+// <Name>Temperature</Name>
+// <Description1>This IPSO object should be used with a temperature sensor to report a temperature measurement.  It also provides resources for minimum/maximum measured values and the minimum/maximum range that can be measured by the temperature sensor. An example measurement unit is degrees Celsius.</Description1>
+// <ObjectID>3303</ObjectID>
+// <ObjectURN>urn:oma:github.com/yplam/lwm2m:ext:3303:1.1</ObjectURN>
+// <LWM2MVersion>1.0</LWM2MVersion>
+// <ObjectVersion>1.1</ObjectVersion>
+// <MultipleInstances>Multiple</MultipleInstances>
+// <Mandatory>Optional</Mandatory>
 type xObjectDefinition struct {
 	ObjectID          uint16
 	Name              string
@@ -219,16 +284,16 @@ type xResourcesDefinition struct {
 	Item []xResourceDefinition
 }
 
-//<Item ID="5700">
-//<Name>Sensor Value</Name>
-//<Operations>R</Operations>
-//<MultipleInstances>Single</MultipleInstances>
-//<Mandatory>Mandatory</Mandatory>
-//<Type>Float</Type>
-//<RangeEnumeration></RangeEnumeration>
-//<Units></Units>
-//<Description>Last or Current Measured Value from the Sensor.</Description>
-//</Item>
+// <Item ID="5700">
+// <Name>Sensor Value</Name>
+// <Operations>R</Operations>
+// <MultipleInstances>Single</MultipleInstances>
+// <Mandatory>Mandatory</Mandatory>
+// <EventType>Float</EventType>
+// <RangeEnumeration></RangeEnumeration>
+// <Units></Units>
+// <Description>Last or Current Measured Value from the Sensor.</Description>
+// </Item>
 type xResourceDefinition struct {
 	ID                uint16 `xml:"ID,attr"`
 	Name              string
@@ -238,3 +303,27 @@ type xResourceDefinition struct {
 	Mandatory         string
 	Type              string
 }
+
+//go:embed definition/*.xml
+var regDefaultDir embed.FS
+
+type _FS interface {
+	fs.ReadFileFS
+	fs.ReadDirFS
+}
+
+type _wrapFS struct{}
+
+func (_ _wrapFS) Open(name string) (fs.File, error) {
+	return os.Open(name)
+}
+
+func (_ _wrapFS) ReadFile(name string) ([]byte, error) {
+	return os.ReadFile(name)
+}
+
+func (_ _wrapFS) ReadDir(name string) ([]fs.DirEntry, error) {
+	return os.ReadDir(name)
+}
+
+var _ _FS = (*_wrapFS)(nil)

@@ -7,7 +7,7 @@ import (
 )
 
 func TestDefaultRegistry(t *testing.T) {
-	reg := DefaultRegistry()
+	reg := GetRegistry()
 	validateRegistryTest(t, reg)
 }
 

@@ -5,10 +5,17 @@ import (
 	"github.com/plgd-dev/go-coap/v3/message"
 	"github.com/plgd-dev/go-coap/v3/message/codes"
 	"github.com/plgd-dev/go-coap/v3/mux"
+	"github.com/yplam/lwm2m/core"
+	"github.com/yplam/lwm2m/encoding"
+	"io"
 )
 
+type ValidateClientConnCallback func(cc mux.Conn, ep string) error
+
 type Handler struct {
-	logger logging.LeveledLogger
+	logger     logging.LeveledLogger
+	manager    core.Manager
+	validateCb ValidateClientConnCallback
 }
 
 func (h *Handler) ServeCOAP(w mux.ResponseWriter, r *mux.Message) {
@@ -30,7 +37,7 @@ func (h *Handler) ServeCOAP(w mux.ResponseWriter, r *mux.Message) {
 			h.logger.Debugf("handle update %v", id)
 			h.handleUpdate(w, r, id)
 		} else if r.Code() == codes.DELETE {
-			h.logger.Debug("handle delete")
+			h.logger.Debugf("handle delete %v", id)
 			h.handleDelete(w, r, id)
 		} else {
 			h.logger.Warnf("unsupported code %v", r.Code())
@@ -49,18 +56,92 @@ func (h *Handler) handleBadRequest(w mux.ResponseWriter) {
 }
 
 func (h *Handler) handleRegistration(w mux.ResponseWriter, r *mux.Message) {
-
+	q, err := r.Options().Queries()
+	if err != nil {
+		h.handleBadRequest(w)
+		return
+	}
+	req, err := core.NewRegisterRequest(q)
+	if err != nil {
+		h.logger.Warnf("parse registration request err %v", err)
+		h.handleBadRequest(w)
+		return
+	}
+	// use this callback to validate dtls connection and register endpoint
+	if h.validateCb != nil {
+		err = h.validateCb(w.Conn(), req.Ep)
+		if err != nil {
+			_ = w.SetResponse(codes.Forbidden, message.TextPlain, nil)
+			return
+		}
+	}
+	var links []*encoding.CoreLink
+	if r.Body() != nil {
+		if b, err2 := io.ReadAll(r.Body()); err2 == nil {
+			links, _ = encoding.CoreLinksFromString(string(b))
+		}
+	}
+	d, err := h.manager.Register(req, links, w.Conn())
+	if err != nil {
+		h.handleBadRequest(w)
+		return
+	}
+	h.logger.Debugf("registration: %#v", req)
+	if err = w.SetResponse(codes.Created, message.TextPlain, nil,
+		message.Option{ID: message.LocationPath, Value: []byte("rd")},
+		message.Option{ID: message.LocationPath, Value: []byte(d.Id)}); err == nil {
+		h.logger.Debugf("registration ok")
+		go func() {
+			h.manager.PostRegister(d.Id)
+		}()
+	} else {
+		h.logger.Warnf("registration err")
+	}
 }
 
 func (h *Handler) handleUpdate(w mux.ResponseWriter, r *mux.Message, id string) {
-
+	req := &core.UpdateRequest{
+		Lifetime:    nil,
+		BindingMode: nil,
+		SmsNumber:   nil,
+	}
+	q, err := r.Options().Queries()
+	if err == nil {
+		req, err = core.NewUpdateRequest(q)
+		if err != nil {
+			h.logger.Warnf("parse update request err %v", err)
+			h.handleBadRequest(w)
+			return
+		}
+	}
+	var links []*encoding.CoreLink
+	if r.Body() != nil {
+		if b, err2 := io.ReadAll(r.Body()); err2 == nil {
+			links, _ = encoding.CoreLinksFromString(string(b))
+		}
+	}
+	err = h.manager.Update(id, req, links, w.Conn())
+	if err != nil {
+		_ = w.SetResponse(codes.NotFound, message.TextPlain, nil)
+		return
+	}
+	if err = w.SetResponse(codes.Changed, message.TextPlain, nil); err == nil {
+		h.logger.Debugf("update ok")
+		h.manager.PostUpdate(id)
+	}
 }
 
 func (h *Handler) handleDelete(w mux.ResponseWriter, r *mux.Message, id string) {
-
+	d, err := h.manager.GetDevice(id)
+	if err != nil {
+		_ = w.SetResponse(codes.NotFound, message.TextPlain, nil)
+	} else {
+		_ = w.SetResponse(codes.Deleted, message.TextPlain, nil)
+	}
+	_ = h.manager.Deregister(d.Id)
 }
 
-func NewHandler(r *mux.Router, opts ...Option) *Handler {
+func EnableHandler(r *mux.Router, m core.Manager, opts ...Option) {
 	cfg := newConfig()
 	for _, opt := range opts {
 		opt(cfg)
@@ -70,9 +151,9 @@ func NewHandler(r *mux.Router, opts ...Option) *Handler {
 		cfg.logger = lf.NewLogger("registration")
 	}
 	h := &Handler{
-		logger: cfg.logger,
+		logger:  cfg.logger,
+		manager: m,
 	}
 	_ = r.Handle("/rd", h)
-	_ = r.Handle("/rd/", h)
-	return h
+	_ = r.Handle("/rd/{v1}", h)
 }

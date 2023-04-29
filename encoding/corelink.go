@@ -1,4 +1,4 @@
-package core
+package encoding
 
 import (
 	"errors"
@@ -50,6 +50,14 @@ func (l *CoreLink) UnmarshalText(text []byte) error {
 		}
 	}
 	return nil
+}
+
+func (l *CoreLink) String() string {
+	str := "<" + l.Uri + ">"
+	for key, val := range l.Params {
+		str += ";" + key + "=\"" + val + "\""
+	}
+	return str
 }
 
 //	A CoRE resource discovery response may contain multiple CoreLink values
