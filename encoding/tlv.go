@@ -1,4 +1,4 @@
-package lwm2m
+package encoding
 
 import (
 	"bytes"
@@ -8,34 +8,34 @@ import (
 )
 
 var (
-	ErrTLVInvalidLength = errors.New("invalid core link string value")
-	ErrTLVNotEnoughData = errors.New("not enough data")
+	ErrTlvInvalidLength = errors.New("invalid core link string value")
+	ErrTlvNotEnoughData = errors.New("not enough data")
 )
 
-type TLVType byte
+type TlvType byte
 
 var (
-	TLVObjectInstance       TLVType = 0 // Object Instance in which case the Value contains one or more Resource TLVs
-	TLVMultipleResourceItem TLVType = 1 // Resource Instance with Value for use	within a multiple Resource TLV
-	TLVMultipleResource     TLVType = 2 // multiple Resource, in which case the	Value contains one or more Resource Instance TLVs
-	TLVSingleResource       TLVType = 3 // Resource with Value
+	TlvObjectInstance       TlvType = 0 // Object Instance in which case the Value contains one or more Resource TLVs
+	TlvMultipleResourceItem TlvType = 1 // Resource Instance with Value for use	within a multiple Resource Encoding
+	TlvMultipleResource     TlvType = 2 // multiple Resource, in which case the	Value contains one or more Resource Instance TLVs
+	TlvSingleResource       TlvType = 3 // Resource with Value
 )
 
-// TLV is Type-Length-Value encoding format for github.com/yplam/lwm2m
+// Encoding is Type-Length-Value encoding format for lwm2m
 //
 // -------------------------------------------------------------------------------
 // + Type       + 8 bits    + Bit 7-6: Indicates the type of Identifier.
 // +            +           + 00 = Object Instance in which case the Value
 // +            +           +      contains one or more Resource TLVs
 // +            +           + 01 = Resource Instance with Value for use
-// +            +           +      within a multiple Resource TLV
+// +            +           +      within a multiple Resource Encoding
 // +            +           + 10 = multiple Resource, in which case the Value
 // +            +           +       contains one or more Resource Instance TLVs
 // +            +           + 11 = Resource with Value
 // +            +           +------------------------------------------------------
 // +            +           + Bit 5: Indicates the Length of the Identifier.
-// +            +           + 0 = The Identifier field of this TLV is 8 bits long
-// +            +           + 1 =The Identifier field of this TLV is 16 bits long
+// +            +           + 0 = The Identifier field of this Encoding is 8 bits long
+// +            +           + 1 =The Identifier field of this Encoding is 16 bits long
 // +            +           +------------------------------------------------------
 // +            +           + Bit 4-3: Indicates the type of Length.
 // +            +           + 00 = No length field, the value immediately
@@ -55,36 +55,43 @@ var (
 // +------------+-----------+------------------------------------------------------
 // + Value      + bytes     + Value of the tag.
 // -----------------------------------------------------------------------------
-type TLV struct {
-	Type       TLVType
+type Tlv struct {
+	Type       TlvType
 	Identifier uint16
 	Value      []byte
 	Length     uint32
-	Children   []*TLV
+	Children   []*Tlv
 }
 
-func (t *TLV) Unmarshal(data []byte) (uint32, error) {
-	dlen := uint32(len(data))
-	if dlen == 0 {
-		return 0, nil
-	}
-	if dlen < 2 {
-		return 0, ErrTLVNotEnoughData
-	}
-	//logrus.Debugf("tlv unmarshal %#v", data)
-	t.Type = TLVType((data[0] >> 6) & 0x03)
+func (t *Tlv) UnmarshalBinary(data []byte) (err error) {
+	_, err = t.Unmarshal(data)
+	return
+}
 
-	var offset uint32 = 1
+func (t *Tlv) Unmarshal(data []byte) (offset uint32, err error) {
+	dataLen := uint32(len(data))
+	if dataLen == 0 {
+		return
+	}
+	if dataLen < 2 {
+		err = ErrTlvNotEnoughData
+		return
+	}
+	t.Type = TlvType((data[0] >> 6) & 0x03)
+
+	offset = 1
 	idLen := uint32((data[0]>>5)&0x01 + 1)
-	if dlen < offset+idLen {
-		return 0, ErrTLVNotEnoughData
+	if dataLen < offset+idLen {
+		err = ErrTlvNotEnoughData
+		return
 	}
 	t.Identifier = uint16(tlvLen(data[offset : offset+idLen]))
 
 	offset = offset + idLen
 	lenType := uint32((data[0] >> 3) & 0x03)
-	if dlen < offset+lenType {
-		return 0, ErrTLVNotEnoughData
+	if dataLen < offset+lenType {
+		err = ErrTlvNotEnoughData
+		return
 	}
 	if lenType == 0 {
 		t.Length = uint32(data[0] & 0x07)
@@ -93,27 +100,26 @@ func (t *TLV) Unmarshal(data []byte) (uint32, error) {
 		offset = lenType + offset
 	}
 
-	if dlen < offset+t.Length {
-		return 0, ErrTLVNotEnoughData
+	if dataLen < offset+t.Length {
+		err = ErrTlvNotEnoughData
+		return
 	}
 	t.Value = data[offset : offset+t.Length]
 	offset = offset + t.Length
-	if t.Type == TLVObjectInstance || t.Type == TLVMultipleResource {
-		//logrus.Debugf("decode children of %v", t.Type)
-		c, err := DecodeTLVs(t.Value)
+	if t.Type == TlvObjectInstance || t.Type == TlvMultipleResource {
+		var c []*Tlv
+		c, err = DecodeTlv(t.Value)
 		if err != nil {
-			return 0, err
+			return
 		}
 		t.Children = c
 	}
-	//logrus.Debugf("total : %v, %#v", offset, t)
 	return offset, nil
 }
 
-// @todo need more tests
-func (t *TLV) Marshal() []byte {
+func (t *Tlv) MarshalBinary() ([]byte, error) {
 	if len(t.Children) > 0 {
-		t.Value = EncodeTLVs(t.Children)
+		t.Value = EncodeTlv(t.Children)
 		t.Length = uint32(len(t.Value))
 	}
 	data := make([]byte, 0, t.Length+6)
@@ -138,11 +144,11 @@ func (t *TLV) Marshal() []byte {
 			byte((t.Length&0xFF0000)>>16), byte((t.Length&0xFF00)>>8), byte(t.Length&0xFF))
 	}
 	data = append(data, t.Value...)
-	return data
+	return data, nil
 }
 
-// return the total size of the encoded bytes
-func (t *TLV) marshalCap() (c uint32) {
+// marshalCap return the total size of the encoded bytes
+func (t *Tlv) marshalCap() (c uint32) {
 	c = 3
 	var l uint32
 	if len(t.Children) > 0 {
@@ -164,11 +170,11 @@ func (t *TLV) marshalCap() (c uint32) {
 }
 
 // UTF-8 string
-func (t *TLV) String() (string, error) {
-	return string(t.Value), nil
+func (t *Tlv) StringVal() string {
+	return string(t.Value)
 }
 
-func (t *TLV) Integer() (val int64, err error) {
+func (t *Tlv) Integer() (val int64, err error) {
 	buff := bytes.NewBuffer(t.Value)
 	if t.Length == 1 {
 		var i1 int8
@@ -187,50 +193,54 @@ func (t *TLV) Integer() (val int64, err error) {
 		err = binary.Read(buff, binary.BigEndian, &i8)
 		val = i8
 	} else {
-		err = ErrTLVInvalidLength
+		err = ErrTlvInvalidLength
 	}
 	return
 }
 
-func (t *TLV) Float() (float64, error) {
+func (t *Tlv) Float() (float64, error) {
 	if t.Length == 4 {
 		return float64(math.Float32frombits(binary.BigEndian.Uint32(t.Value))), nil
 	} else if t.Length == 8 {
 		return math.Float64frombits(binary.BigEndian.Uint64(t.Value)), nil
 	} else {
-		return 0, ErrTLVInvalidLength
+		return 0, ErrTlvInvalidLength
 	}
 }
 
-func (t *TLV) Boolean() (val bool, err error) {
+func (t *Tlv) Boolean() (val bool, err error) {
 	if t.Length != 1 {
-		return false, ErrTLVInvalidLength
+		return false, ErrTlvInvalidLength
 	}
 	val = t.Value[0] != 0
 	return
 }
 
-func (t *TLV) Opaque() ([]byte, error) {
-	return t.Value, nil
+func (t *Tlv) Opaque() []byte {
+	return t.Value
 }
 
-func (t *TLV) Time() (int64, error) {
+func (t *Tlv) Time() (int64, error) {
 	if t.Length == 4 {
 		return int64(binary.BigEndian.Uint32(t.Value)), nil
 	} else if t.Length == 8 {
 		return int64(binary.BigEndian.Uint64(t.Value)), nil
 	} else {
-		return 0, ErrTLVInvalidLength
+		return 0, ErrTlvInvalidLength
 	}
 }
 
-func (t *TLV) ObjectLink() (uint16, uint16, error) {
+func (t *Tlv) ObjectLink() (uint16, uint16, error) {
 	if t.Length != 4 {
-		return 0, 0, ErrTLVInvalidLength
+		return 0, 0, ErrTlvInvalidLength
 	}
 	_ = t.Value[3]
 	return uint16(t.Value[0])*256 + uint16(t.Value[1]),
 		uint16(t.Value[2])*256 + uint16(t.Value[3]), nil
+}
+
+func (t *Tlv) Raw() []byte {
+	return t.Value
 }
 
 func tlvLen(d []byte) (l uint32) {
@@ -240,44 +250,48 @@ func tlvLen(d []byte) (l uint32) {
 	return
 }
 
-func DecodeTLVs(data []byte) ([]*TLV, error) {
-	var tlvs []*TLV
+func DecodeTlv(data []byte) (tlvs []*Tlv, err error) {
 	var offset uint32 = 0
-	var err error
-	//logrus.Debugf("tlv decode %#v", data)
+	var o uint32
 	for {
-		t := &TLV{}
-		o, err := t.Unmarshal(data[offset:])
+		t := &Tlv{}
+		o, err = t.Unmarshal(data[offset:])
 		offset += o
 		if err != nil {
-			return nil, err
+			return
 		}
 		if o == 0 {
 			break
 		}
 		tlvs = append(tlvs, t)
 	}
-	return tlvs, err
+	return
 }
 
-func EncodeTLVs(tlvs []*TLV) []byte {
+func EncodeTlv(tlvs []*Tlv) []byte {
 	var c uint32 = 0
 	for _, tlv := range tlvs {
 		c += tlv.marshalCap()
 	}
 	data := make([]byte, 0, c)
 	for _, tlv := range tlvs {
-		data = append(data, tlv.Marshal()...)
+		d, _ := tlv.MarshalBinary()
+		data = append(data, d...)
 	}
 	return data
 }
 
-func NewTLV(t TLVType, id uint16, v []byte) *TLV {
-	return &TLV{
+func NewTlv(t TlvType, id uint16, v any) *Tlv {
+	buf := new(bytes.Buffer)
+	err := binary.Write(buf, binary.BigEndian, v)
+	if err != nil {
+		return nil
+	}
+	return &Tlv{
 		Type:       t,
 		Identifier: id,
-		Value:      v,
-		Length:     uint32(len(v)),
-		Children:   make([]*TLV, 0),
+		Value:      buf.Bytes(),
+		Length:     uint32(buf.Len()),
+		Children:   make([]*Tlv, 0),
 	}
 }

@@ -1,4 +1,4 @@
-package lwm2m
+package encoding
 
 import (
 	"github.com/stretchr/testify/assert"

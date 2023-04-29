@@ -1,8 +1,13 @@
-package lwm2m
+package encoding
 
 import (
+	"errors"
 	"regexp"
 	"strings"
+)
+
+var (
+	ErrCoreLinkInvalidValue = errors.New("invalid core link string value")
 )
 
 // CoreLink is a link format use by Coap.
@@ -47,7 +52,15 @@ func (l *CoreLink) UnmarshalText(text []byte) error {
 	return nil
 }
 
-//	A CoRE resource discovery response may contains multiple CoreLink values
+func (l *CoreLink) String() string {
+	str := "<" + l.Uri + ">"
+	for key, val := range l.Params {
+		str += ";" + key + "=\"" + val + "\""
+	}
+	return str
+}
+
+//	A CoRE resource discovery response may contain multiple CoreLink values
 //
 //    Link            = link-value-list
 //    link-value-list = [ link-value *[ "," link-value ]]

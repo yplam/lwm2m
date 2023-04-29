@@ -1,4 +1,4 @@
-package lwm2m
+package node
 
 import (
 	"errors"
@@ -103,60 +103,76 @@ func NewResourceInstancePath(objID, obiID, resourceID, resiID uint16) Path {
 	}
 }
 
-func (p Path) ObjectId() (uint16, error) {
+func (p *Path) ObjectId() (uint16, error) {
 	if p.objectId < 0 {
 		return 0, ErrPathNilValue
 	}
 	return uint16(p.objectId), nil
 }
 
-func (p Path) ObjectInstanceId() (uint16, error) {
+func (p *Path) SetObjectId(val uint16) {
+	p.objectId = int32(val)
+}
+
+func (p *Path) ObjectInstanceId() (uint16, error) {
 	if p.objectInstanceId < 0 {
 		return 0, ErrPathNilValue
 	}
 	return uint16(p.objectInstanceId), nil
 }
 
-func (p Path) ResourceId() (uint16, error) {
+func (p *Path) SetObjectInstanceId(val uint16) {
+	p.objectInstanceId = int32(val)
+}
+
+func (p *Path) ResourceId() (uint16, error) {
 	if p.resourceId < 0 {
 		return 0, ErrPathNilValue
 	}
 	return uint16(p.resourceId), nil
 }
 
-func (p Path) ResourceInstanceId() (uint16, error) {
+func (p *Path) SetResourceId(val uint16) {
+	p.resourceId = int32(val)
+}
+
+func (p *Path) ResourceInstanceId() (uint16, error) {
 	if p.resourceInstanceId < 0 {
 		return 0, ErrPathNilValue
 	}
 	return uint16(p.resourceInstanceId), nil
 }
 
-func (p Path) IsRoot() bool {
+func (p *Path) SetResourceInstanceId(val uint16) {
+	p.resourceInstanceId = int32(val)
+}
+
+func (p *Path) IsRoot() bool {
 	return p.objectId == -1 && p.objectInstanceId == -1 &&
 		p.resourceId == -1 && p.resourceInstanceId == -1
 }
 
-func (p Path) IsObject() bool {
+func (p *Path) IsObject() bool {
 	return p.objectId > -1 && p.objectInstanceId == -1 &&
 		p.resourceId == -1 && p.resourceInstanceId == -1
 }
 
-func (p Path) IsObjectInstance() bool {
+func (p *Path) IsObjectInstance() bool {
 	return p.objectId > -1 && p.objectInstanceId > -1 &&
 		p.resourceId == -1 && p.resourceInstanceId == -1
 }
 
-func (p Path) IsResource() bool {
+func (p *Path) IsResource() bool {
 	return p.objectId > -1 && p.objectInstanceId > -1 &&
 		p.resourceId > -1 && p.resourceInstanceId == -1
 }
 
-func (p Path) IsResourceInstance() bool {
+func (p *Path) IsResourceInstance() bool {
 	return p.objectId > -1 && p.objectInstanceId > -1 &&
 		p.resourceId > -1 && p.resourceInstanceId > -1
 }
 
-func (p Path) IsChildOfOrEq(pp Path) bool {
+func (p *Path) IsChildOfOrEq(pp Path) bool {
 	if pp.objectId > -1 && p.objectId != pp.objectId {
 		return false
 	}
@@ -172,7 +188,7 @@ func (p Path) IsChildOfOrEq(pp Path) bool {
 	return true
 }
 
-func (p Path) validate() bool {
+func (p *Path) validate() bool {
 	if p.IsObject() {
 		return p.objectId >= 0 && p.objectId <= 65535
 	} else if p.IsObjectInstance() {
@@ -193,7 +209,7 @@ func (p Path) validate() bool {
 	}
 }
 
-func (p Path) String() string {
+func (p *Path) String() string {
 	var b strings.Builder
 	b.WriteString("/")
 	if p.objectId > -1 {
