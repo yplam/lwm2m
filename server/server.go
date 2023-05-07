@@ -2,7 +2,9 @@ package server
 
 import (
 	"context"
+	piondtls "github.com/pion/dtls/v2"
 	"github.com/pion/logging"
+	dtlsServer "github.com/plgd-dev/go-coap/v3/dtls/server"
 	"github.com/plgd-dev/go-coap/v3/message"
 	"github.com/plgd-dev/go-coap/v3/message/codes"
 	"github.com/plgd-dev/go-coap/v3/mux"
@@ -29,8 +31,8 @@ func ListenAndServeWithContext(ctx context.Context, router *mux.Router, opts ...
 	for _, opt := range opts {
 		opt(cfg)
 	}
+	lf := logging.NewDefaultLoggerFactory()
 	if cfg.logger == nil {
-		lf := logging.NewDefaultLoggerFactory()
 		cfg.logger = lf.NewLogger("server")
 	}
 	router.DefaultHandleFunc(func(w mux.ResponseWriter, r *mux.Message) {
@@ -103,6 +105,41 @@ func ListenAndServeWithContext(ctx context.Context, router *mux.Router, opts ...
 			}()
 			s := tcp.NewServer(options.WithContext(ctx), options.WithMux(router))
 			cfg.logger.Info("Starting tcp server")
+			return s.Serve(l)
+		})
+	}
+	if (len(cfg.dtlsAddr) > 0) && (len(cfg.dtlsNetwork) > 0) && cfg.pskStore != nil {
+		eg.Go(func() error {
+			l, err := net.NewDTLSListener(cfg.dtlsNetwork, cfg.dtlsAddr, &piondtls.Config{
+				PSK: func(hint []byte) ([]byte, error) {
+					return cfg.pskStore.PSKFromIdentity(hint)
+				},
+				CipherSuites:         []piondtls.CipherSuiteID{piondtls.TLS_PSK_WITH_AES_128_CCM_8},
+				ExtendedMasterSecret: piondtls.DisableExtendedMasterSecret,
+				LoggerFactory:        lf,
+				ConnectContextMaker: func() (context.Context, func()) {
+					return context.WithCancel(ctx)
+				},
+			})
+			if err != nil {
+				return err
+			}
+			go func() {
+				select {
+				case <-ctx.Done():
+					l.Close()
+				}
+			}()
+			defer func() {
+				if errC := l.Close(); errC != nil && err == nil {
+					err = errC
+				}
+				cfg.logger.Info("Dtls server stop")
+			}()
+			s := dtlsServer.New(options.WithContext(ctx),
+				options.WithMux(router),
+				options.WithTransmission(1, time.Second*30, 4),
+			)
 			return s.Serve(l)
 		})
 	}
