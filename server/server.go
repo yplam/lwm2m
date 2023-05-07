@@ -108,12 +108,10 @@ func ListenAndServeWithContext(ctx context.Context, router *mux.Router, opts ...
 			return s.Serve(l)
 		})
 	}
-	if (len(cfg.dtlsAddr) > 0) && (len(cfg.dtlsNetwork) > 0) && cfg.pskStore != nil {
+	if (len(cfg.dtlsAddr) > 0) && (len(cfg.dtlsNetwork) > 0) && cfg.pskCallback != nil {
 		eg.Go(func() error {
 			l, err := net.NewDTLSListener(cfg.dtlsNetwork, cfg.dtlsAddr, &piondtls.Config{
-				PSK: func(hint []byte) ([]byte, error) {
-					return cfg.pskStore.PSKFromIdentity(hint)
-				},
+				PSK:                  cfg.pskCallback,
 				CipherSuites:         []piondtls.CipherSuiteID{piondtls.TLS_PSK_WITH_AES_128_CCM_8},
 				ExtendedMasterSecret: piondtls.DisableExtendedMasterSecret,
 				LoggerFactory:        lf,
@@ -134,7 +132,7 @@ func ListenAndServeWithContext(ctx context.Context, router *mux.Router, opts ...
 				if errC := l.Close(); errC != nil && err == nil {
 					err = errC
 				}
-				cfg.logger.Info("Dtls server stop")
+				cfg.logger.Info("DTLS server stop")
 			}()
 			s := dtlsServer.New(options.WithContext(ctx),
 				options.WithMux(router),

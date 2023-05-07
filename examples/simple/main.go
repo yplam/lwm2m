@@ -13,7 +13,7 @@ func main() {
 	registration.EnableHandler(r, deviceManager)
 	err := server.ListenAndServe(r,
 		server.EnableUDPListener("udp", ":5683"),
-		server.EnableTCPListener("tcp", ":5684"),
+		server.EnableTCPListener("tcp", ":5685"),
 	)
 	if err != nil {
 		log.Printf("serve lwm2m with err: %v", err)

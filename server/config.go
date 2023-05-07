@@ -1,6 +1,9 @@
 package server
 
-import "github.com/pion/logging"
+import (
+	"github.com/pion/dtls/v2"
+	"github.com/pion/logging"
+)
 
 type config struct {
 	udpNetwork  string
@@ -9,7 +12,7 @@ type config struct {
 	tcpAddr     string
 	dtlsNetwork string
 	dtlsAddr    string
-	pskStore    PSKStore
+	pskCallback dtls.PSKCallback
 	logger      logging.LeveledLogger
 }
 
@@ -21,7 +24,7 @@ func newServeConfig() *config {
 		tcpAddr:     "",
 		dtlsNetwork: "",
 		dtlsAddr:    "",
-		pskStore:    nil,
+		pskCallback: nil,
 		logger:      nil,
 	}
 }
@@ -48,10 +51,10 @@ func EnableTCPListener(network, addr string) Option {
 	}
 }
 
-func EnableDTLSListener(network, addr string, store PSKStore) Option {
+func EnableDTLSListener(network, addr string, cb dtls.PSKCallback) Option {
 	return func(o *config) {
 		o.dtlsNetwork = network
 		o.dtlsAddr = addr
-		o.pskStore = store
+		o.pskCallback = cb
 	}
 }
