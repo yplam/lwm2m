@@ -91,14 +91,16 @@ func (d *Device) ParseCoreLinks(links []*encoding.CoreLink) {
 		if err != nil {
 			continue
 		}
-		objId := uint16(id)
-		obj := node.NewObject(objId)
+		obj, ok := objs[objId]
+		if !ok {
+			obj = node.NewObject(objId)
+			objs[objId] = obj
+		}
 		if len(sps) == 2 {
 			if insId, err := strconv.Atoi(sps[1]); err == nil {
 				obj.Instances[uint16(insId)] = node.NewObjectInstance(uint16(insId))
 			}
 		}
-		objs[objId] = obj
 	}
 	d.objLock.Lock()
 	d.objs = objs
