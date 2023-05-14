@@ -91,6 +91,7 @@ func (d *Device) ParseCoreLinks(links []*encoding.CoreLink) {
 		if err != nil {
 			continue
 		}
+		objId := uint16(id)
 		obj, ok := objs[objId]
 		if !ok {
 			obj = node.NewObject(objId)
