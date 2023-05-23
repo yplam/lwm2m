@@ -1,22 +1,31 @@
 package server
 
-import "github.com/pion/logging"
+import (
+	"github.com/pion/dtls/v2"
+	"github.com/pion/logging"
+)
 
 type config struct {
-	udpNetwork string
-	udpAddr    string
-	tcpNetwork string
-	tcpAddr    string
-	logger     logging.LeveledLogger
+	udpNetwork  string
+	udpAddr     string
+	tcpNetwork  string
+	tcpAddr     string
+	dtlsNetwork string
+	dtlsAddr    string
+	pskCallback dtls.PSKCallback
+	logger      logging.LeveledLogger
 }
 
 func newServeConfig() *config {
 	return &config{
-		udpNetwork: "",
-		udpAddr:    "",
-		tcpNetwork: "",
-		tcpAddr:    "",
-		logger:     nil,
+		udpNetwork:  "",
+		udpAddr:     "",
+		tcpNetwork:  "",
+		tcpAddr:     "",
+		dtlsNetwork: "",
+		dtlsAddr:    "",
+		pskCallback: nil,
+		logger:      nil,
 	}
 }
 
@@ -39,5 +48,13 @@ func EnableTCPListener(network, addr string) Option {
 	return func(o *config) {
 		o.tcpNetwork = network
 		o.tcpAddr = addr
+	}
+}
+
+func EnableDTLSListener(network, addr string, cb dtls.PSKCallback) Option {
+	return func(o *config) {
+		o.dtlsNetwork = network
+		o.dtlsAddr = addr
+		o.pskCallback = cb
 	}
 }
