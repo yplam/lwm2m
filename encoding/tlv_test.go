@@ -57,9 +57,9 @@ func TestSingleObjectTLV(t *testing.T) {
 	assert.Equal(t, len(v[6].Children), 2)
 	assert.Equal(t, len(v[9].Children), 1)
 
-	s := v[0].String()
+	s := v[0].StringVal()
 	assert.Equal(t, s, "Open Mobile Alliance")
-	s = v[1].String()
+	s = v[1].StringVal()
 	assert.Equal(t, s, "Lightweight M2M Client")
 
 	i8, err := v[7].Integer()
