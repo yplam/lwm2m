@@ -138,6 +138,7 @@ func ListenAndServeWithContext(ctx context.Context, router *mux.Router, opts ...
 				options.WithMux(router),
 				options.WithTransmission(1, time.Second*30, 4),
 			)
+			cfg.logger.Info("Starting DTLS server")
 			return s.Serve(l)
 		})
 	}

@@ -90,6 +90,14 @@ func onObserveResource(d *core.Device, p node.Path, notify *node.Resource) {
 	glog.Infof("On observe resource %v", notify)
 }
 
+func PSKFromIdentity(hint []byte) ([]byte, error) {
+	glog.Infof("New PSK Identity check [% x]", hint)
+	return []byte{
+		0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+		0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
+	}, nil
+}
+
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	r := server.DefaultRouter()
@@ -111,7 +119,9 @@ func main() {
 		glog.Infof("Starting lwm2m server")
 		err := server.ListenAndServeWithContext(ctx, r,
 			server.WithLogger(lf.NewLogger("server")),
-			server.EnableUDPListener("udp", ":5683"))
+			server.EnableUDPListener("udp", ":5683"),
+			server.EnableTCPListener("tcp", ":5685"),
+			server.EnableDTLSListener("udp", ":5684", PSKFromIdentity))
 		if err != nil {
 			glog.Errorf("Serve lwm2m with err: %v", err)
 		}
@@ -141,7 +151,7 @@ func (l loggerFactory) NewLogger(scope string) logging.LeveledLogger {
 }
 
 func NewDefaultLoggerFactory() logging.LoggerFactory {
-	logrus.SetLevel(logrus.DebugLevel)
+	logrus.SetLevel(logrus.TraceLevel)
 	l := logrus.StandardLogger()
 	return &loggerFactory{
 		log: l,

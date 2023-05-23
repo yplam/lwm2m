@@ -38,10 +38,11 @@ A simple and lightweight ( but not full feature ) lwm2m server aim to run on edg
   * [ ] DTLS with PSK
 - [x] Transport
   * [x] UDP transport support.
-  * [x] TCP transport support.
+  * [x] TCP transport support.(Not tested)
 - [ ] Tested with clients
-  * [x] Leshan client
-  * [x] Anjay client running on ESP32
+  * [x] Leshan client: coap, coaps over udp
+  * [x] Anjay client running on ESP32: coap over udp
+  * [x] Anjay client running on Linux: coap, coaps over udp
   * [ ] Zephyr LWM2M client running on nrf52840 with Openthread
 
 ## Installation
@@ -75,6 +76,26 @@ func main() {
   }
 }
 
+```
+
+## Test Commands
+
+leshan client
+
+```shell
+# coap 
+java -jar leshan-client-demo.jar --server-url=localhost:5683
+
+# coaps
+java -jar leshan-client-demo.jar --server-url=localhost:5684 -i 123 --psk-key=000102030405060708090a0b0c0d0e0f
+```
+anjay client
+```shell
+# coap
+./output/bin/demo --endpoint-name $(hostname) --server-uri coap://127.0.0.1:5683
+
+# coaps
+./output/bin/demo --endpoint-name $(hostname) --server-uri coaps://127.0.0.1:5684 --security-mode psk --identity 666f6f --key 000102030405060708090a0b0c0d0e0f --ciphersuites 49320 --tls-version TLSv1.2
 ```
 
 ## License
