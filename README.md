@@ -1,5 +1,7 @@
 # lwm2m
 
+![build](https://github.com/yplam/lwm2m/actions/workflows/go.yml/badge.svg) ![Go Report Card](https://goreportcard.com/badge/github.com/yplam/lwm2m)
+
 A simple and lightweight ( but not full feature ) lwm2m server aim to run on edge router.
 
 ## Features

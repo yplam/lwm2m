@@ -75,6 +75,7 @@ func TestDecodeSingleObjectTLV(t *testing.T) {
 
 func TestNodeGetAllResources(t *testing.T) {
 	nodes, err := decodeSingleObjectTLV(t)
+	assert.Nil(t, err)
 	ress, err := GetAllResources(nodes, NewObjectInstancePath(3, 0))
 	assert.Nil(t, err)
 	assert.Equal(t, 13, len(ress))
@@ -85,7 +86,9 @@ func TestNodeGetAllResources(t *testing.T) {
 	assert.Equal(t, "1.0", ins.Value())
 
 	nodes, err = decodeSingleInstanceObjectTLV(t)
+	assert.Nil(t, err)
 	ress, err = GetAllResources(nodes, NewObjectInstancePath(3, 0))
+	assert.Nil(t, err)
 	res, ok = ress[NewResourcePath(3, 0, 6)]
 	assert.Equal(t, true, ok)
 	ins, err = res.GetInstance(0)
