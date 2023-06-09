@@ -39,23 +39,6 @@ func NewBinding(b string) Binding {
 	}
 }
 
-var (
-	_tlvAcceptOption     message.Option
-	_tlvAcceptOptionOnce sync.Once
-)
-
-func _acceptOption() message.Option {
-	_tlvAcceptOptionOnce.Do(func() {
-		buf := make([]byte, 2)
-		l, _ := message.EncodeUint32(buf, uint32(message.AppLwm2mTLV))
-		_tlvAcceptOption = message.Option{
-			ID:    message.Accept,
-			Value: buf[:l],
-		}
-	})
-	return _tlvAcceptOption
-}
-
 type observationEvent struct {
 	p node.Path
 	n []node.Node
@@ -78,6 +61,31 @@ type Device struct {
 
 	observations sync.Map //map[node.Path]Observation
 	obsChan      chan observationEvent
+
+	acceptMediaType message.MediaType
+	writeMediaType  message.MediaType
+	acceptOption    message.Option
+}
+
+var DefaultMediaType = message.AppLwm2mTLV
+
+func (d *Device) SetMediaTypes(acceptMediaType, writeMediaType message.MediaType) {
+	d.acceptMediaType = acceptMediaType
+	d.writeMediaType = writeMediaType
+
+	// generate option once
+	buf := make([]byte, 2)
+	_, _ = message.EncodeUint32(buf, uint32(acceptMediaType))
+	d.acceptOption = message.Option{
+		ID:    message.Accept,
+		Value: buf[:],
+	}
+}
+func (d *Device) GetAcceptMediaType() message.MediaType {
+	return d.acceptMediaType
+}
+func (d *Device) GetWriteMediaType() message.MediaType {
+	return d.writeMediaType
 }
 
 func (d *Device) ParseCoreLinks(links []*encoding.CoreLink) {
@@ -176,7 +184,7 @@ func (d *Device) processObservation(k node.Path) (mux.Observation, error) {
 			p: k,
 			n: nodes,
 		}
-	}, _acceptOption())
+	}, d.acceptOption)
 }
 
 func (d *Device) String() string {
@@ -275,7 +283,7 @@ func (d *Device) HasObjectInstance(id, iid uint16) bool {
 }
 
 func (d *Device) Read(ctx context.Context, p node.Path) ([]node.Node, error) {
-	msg, err := d.conn.Get(ctx, p.String(), _acceptOption())
+	msg, err := d.conn.Get(ctx, p.String(), d.acceptOption)
 	if err != nil {
 		return nil, err
 	}
@@ -302,11 +310,11 @@ func (d *Device) ReadResource(ctx context.Context, p node.Path) (*node.Resource,
 }
 
 func (d *Device) Write(ctx context.Context, p node.Path, val ...node.Node) error {
-	msg, err := node.EncodeMessage(message.AppLwm2mTLV, val)
+	msg, err := node.EncodeMessage(d.writeMediaType, val)
 	if err != nil {
 		return err
 	}
-	resp, err := d.conn.Put(ctx, p.String(), message.AppLwm2mTLV, msg, _acceptOption())
+	resp, err := d.conn.Put(ctx, p.String(), d.writeMediaType, msg, d.acceptOption)
 	if err != nil {
 		return err
 	}
@@ -361,11 +369,11 @@ func (d *Device) Create(ctx context.Context, p node.Path, val *node.Object) erro
 	if !p.IsObject() {
 		return node.ErrPathInvalidValue
 	}
-	msg, err := node.EncodeMessage(message.AppLwm2mTLV, []node.Node{val})
+	msg, err := node.EncodeMessage(d.writeMediaType, []node.Node{val})
 	if err != nil {
 		return err
 	}
-	resp, err := d.conn.Post(ctx, p.String(), message.AppLwm2mTLV, msg)
+	resp, err := d.conn.Post(ctx, p.String(), d.writeMediaType, msg)
 	if err != nil {
 		return err
 	}
