@@ -138,7 +138,7 @@ func onObserveResource(d *core.Device, p node.Path, notify *node.Resource) {
 			rp, _ := node.NewPathFromString("/3347/0/5505")
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 			defer cancel()
-			_ = d.Execute(ctx, rp)
+			_ = d.Execute(ctx, rp, "")
 		}()
 	}
 	go func() {
