@@ -357,7 +357,7 @@ func (d *Device) Execute(ctx context.Context, p node.Path) error {
 	return nil
 }
 
-func (d *Device) Create(ctx context.Context, p node.Path, val *node.Object) error {
+func (d *Device) Create(ctx context.Context, p node.Path, val *node.ObjectInstance) error {
 	if !p.IsObject() {
 		return node.ErrPathInvalidValue
 	}
@@ -365,7 +365,7 @@ func (d *Device) Create(ctx context.Context, p node.Path, val *node.Object) erro
 	if err != nil {
 		return err
 	}
-	resp, err := d.conn.Post(ctx, p.String(), message.AppLwm2mTLV, msg)
+	resp, err := d.conn.Post(ctx, p.String(), message.AppLwm2mTLV, msg, _acceptOption())
 	if err != nil {
 		return err
 	}
@@ -379,7 +379,7 @@ func (d *Device) Delete(ctx context.Context, p node.Path) error {
 	if !p.IsObjectInstance() {
 		return node.ErrPathInvalidValue
 	}
-	resp, err := d.conn.Delete(ctx, p.String())
+	resp, err := d.conn.Delete(ctx, p.String(), _acceptOption())
 	if err != nil {
 		return err
 	}
