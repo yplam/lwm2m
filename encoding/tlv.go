@@ -282,16 +282,26 @@ func EncodeTlv(tlvs []*Tlv) []byte {
 }
 
 func NewTlv(t TlvType, id uint16, v any) *Tlv {
-	buf := new(bytes.Buffer)
-	err := binary.Write(buf, binary.BigEndian, v)
-	if err != nil {
-		return nil
+	var value []byte
+	switch v.(type) {
+	case string:
+		value = []byte(v.(string))
+	case *string:
+		value = []byte(*v.(*string))
+	default:
+		buf := new(bytes.Buffer)
+		err := binary.Write(buf, binary.BigEndian, v)
+		if err == nil {
+			value = buf.Bytes()
+		} else {
+			value = make([]byte, 0)
+		}
 	}
 	return &Tlv{
 		Type:       t,
 		Identifier: id,
-		Value:      buf.Bytes(),
-		Length:     uint32(buf.Len()),
+		Value:      value,
+		Length:     uint32(len(value)),
 		Children:   make([]*Tlv, 0),
 	}
 }

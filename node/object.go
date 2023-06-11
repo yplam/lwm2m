@@ -51,6 +51,10 @@ func (i *ObjectInstance) String() string {
 	return b.String()
 }
 
+func (i *ObjectInstance) SetResource(id uint16, res *Resource) {
+	i.Resources[id] = res
+}
+
 func NewObject(id uint16) *Object {
 	return &Object{
 		Id:        id,
