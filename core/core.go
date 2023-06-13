@@ -9,6 +9,7 @@ import (
 
 var (
 	ErrUnexpectedResponseCode = errors.New("unexpected response code")
+	ErrEmptyBody              = errors.New("empty body")
 )
 
 type Observer interface {

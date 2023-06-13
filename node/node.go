@@ -16,6 +16,7 @@ var (
 	ErrNotFound                = errors.New("not found")
 	ErrContentFormatNotSupport = errors.New("content format not support")
 	ErrPathNotMatch            = errors.New("wrong path type")
+	ErrMediaTypePathConflict   = errors.New("data path and the media type are in conflict")
 )
 
 // A Node is the base type of lwm2m message, can be one of
@@ -47,7 +48,7 @@ func DecodeMessage(basePath Path, msg *pool.Message) (nodes []Node, err error) {
 		return decodeTLVMessage(basePath, tlvs)
 	case message.TextPlain:
 		if !basePath.IsResource() {
-			return nil, errors.New("only resource can be decoded from textplain content")
+			return nil, ErrMediaTypePathConflict
 		}
 		pt := encoding.NewPlainTextRaw(content)
 		if n, err := NewResource(basePath, false); err == nil {
@@ -59,7 +60,7 @@ func DecodeMessage(basePath Path, msg *pool.Message) (nodes []Node, err error) {
 		return nodes, nil
 	case message.AppOctets:
 		if !basePath.IsResource() {
-			return nil, errors.New("only resource can be decoded from opaque content")
+			return nil, ErrMediaTypePathConflict
 		}
 		om, err := encoding.NewOpaqueValue(content)
 		if err != nil {
@@ -164,11 +165,11 @@ func EncodeMessage(t message.MediaType, node []Node) (io.ReadSeeker, error) {
 
 func encodeTextMessage(node []Node) (*encoding.PlainTextValue, error) {
 	if len(node) != 1 {
-		return nil, errors.New("cannot encode multiple values as PlainText")
+		return nil, ErrMediaTypePathConflict
 	}
 	if rr, ok := node[0].(*Resource); ok {
 		if rr.InstanceCount() != 1 {
-			return nil, errors.New("only single resource can be encoded as plaintext")
+			return nil, ErrMediaTypePathConflict
 		}
 		ri, err := rr.GetInstance(0)
 		if err != nil {
@@ -181,16 +182,16 @@ func encodeTextMessage(node []Node) (*encoding.PlainTextValue, error) {
 		}
 		return pt, nil
 	}
-	return nil, errors.New("only single resource can be encoded as plaintext")
+	return nil, ErrMediaTypePathConflict
 }
 
 func encodeOpaqueMessage(node []Node) (*encoding.OpaqueValue, error) {
 	if len(node) != 1 {
-		return nil, errors.New("cannot encode multiple values as opaque octet stream")
+		return nil, ErrMediaTypePathConflict
 	}
 	if rr, ok := node[0].(*Resource); ok {
 		if rr.InstanceCount() != 1 {
-			return nil, errors.New("only single resource can be encoded as octet stream")
+			return nil, ErrMediaTypePathConflict
 		}
 		ri, err := rr.GetInstance(0)
 		if err != nil {
@@ -202,7 +203,7 @@ func encodeOpaqueMessage(node []Node) (*encoding.OpaqueValue, error) {
 		}
 		return om, nil
 	}
-	return nil, errors.New("only single resource can be encoded as octet stream")
+	return nil, ErrMediaTypePathConflict
 }
 
 func encodeTLVMessage(nodes []Node) ([]*encoding.Tlv, error) {

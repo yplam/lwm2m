@@ -3,7 +3,6 @@ package core
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"github.com/plgd-dev/go-coap/v3/message"
 	"github.com/plgd-dev/go-coap/v3/message/codes"
@@ -289,7 +288,7 @@ func (d *Device) Read(ctx context.Context, p node.Path) ([]node.Node, error) {
 		return nil, err
 	}
 	if msg.Body() == nil {
-		return nil, errors.New("empty body")
+		return nil, ErrEmptyBody
 	}
 	return node.DecodeMessage(p, msg)
 }

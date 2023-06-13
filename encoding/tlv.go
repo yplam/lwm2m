@@ -3,13 +3,7 @@ package encoding
 import (
 	"bytes"
 	"encoding/binary"
-	"errors"
 	"math"
-)
-
-var (
-	ErrTlvInvalidLength = errors.New("invalid core link string value")
-	ErrTlvNotEnoughData = errors.New("not enough data")
 )
 
 type TlvType byte
@@ -74,7 +68,7 @@ func (t *Tlv) Unmarshal(data []byte) (offset uint32, err error) {
 		return
 	}
 	if dataLen < 2 {
-		err = ErrTlvNotEnoughData
+		err = ErrNotEnoughData
 		return
 	}
 	t.Type = TlvType((data[0] >> 6) & 0x03)
@@ -82,7 +76,7 @@ func (t *Tlv) Unmarshal(data []byte) (offset uint32, err error) {
 	offset = 1
 	idLen := uint32((data[0]>>5)&0x01 + 1)
 	if dataLen < offset+idLen {
-		err = ErrTlvNotEnoughData
+		err = ErrNotEnoughData
 		return
 	}
 	t.Identifier = uint16(tlvLen(data[offset : offset+idLen]))
@@ -90,7 +84,7 @@ func (t *Tlv) Unmarshal(data []byte) (offset uint32, err error) {
 	offset = offset + idLen
 	lenType := uint32((data[0] >> 3) & 0x03)
 	if dataLen < offset+lenType {
-		err = ErrTlvNotEnoughData
+		err = ErrNotEnoughData
 		return
 	}
 	if lenType == 0 {
@@ -101,7 +95,7 @@ func (t *Tlv) Unmarshal(data []byte) (offset uint32, err error) {
 	}
 
 	if dataLen < offset+t.Length {
-		err = ErrTlvNotEnoughData
+		err = ErrNotEnoughData
 		return
 	}
 	t.Value = data[offset : offset+t.Length]
@@ -193,7 +187,7 @@ func (t *Tlv) Integer() (val int64, err error) {
 		err = binary.Read(buff, binary.BigEndian, &i8)
 		val = i8
 	} else {
-		err = ErrTlvInvalidLength
+		err = ErrInvalidLength
 	}
 	return
 }
@@ -204,13 +198,13 @@ func (t *Tlv) Float() (float64, error) {
 	} else if t.Length == 8 {
 		return math.Float64frombits(binary.BigEndian.Uint64(t.Value)), nil
 	} else {
-		return 0, ErrTlvInvalidLength
+		return 0, ErrInvalidLength
 	}
 }
 
 func (t *Tlv) Boolean() (val bool, err error) {
 	if t.Length != 1 {
-		return false, ErrTlvInvalidLength
+		return false, ErrInvalidLength
 	}
 	val = t.Value[0] != 0
 	return
@@ -226,13 +220,13 @@ func (t *Tlv) Time() (int64, error) {
 	} else if t.Length == 8 {
 		return int64(binary.BigEndian.Uint64(t.Value)), nil
 	} else {
-		return 0, ErrTlvInvalidLength
+		return 0, ErrInvalidLength
 	}
 }
 
 func (t *Tlv) ObjectLink() (uint16, uint16, error) {
 	if t.Length != 4 {
-		return 0, 0, ErrTlvInvalidLength
+		return 0, 0, ErrInvalidLength
 	}
 	_ = t.Value[3]
 	return uint16(t.Value[0])*256 + uint16(t.Value[1]),

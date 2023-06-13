@@ -3,7 +3,6 @@ package encoding
 import (
 	"bytes"
 	"encoding/binary"
-	"errors"
 	"math"
 )
 
@@ -38,7 +37,7 @@ func (o *OpaqueValue) Integer() (val int64, err error) {
 		err = binary.Read(buff, binary.BigEndian, &i8)
 		val = i8
 	} else {
-		err = ErrTlvInvalidLength
+		err = ErrInvalidLength
 	}
 	return
 }
@@ -49,7 +48,7 @@ func (o *OpaqueValue) Float() (float64, error) {
 	} else if len(o.Value) == 8 {
 		return math.Float64frombits(binary.BigEndian.Uint64(o.Value)), nil
 	} else {
-		return 0, ErrTlvInvalidLength
+		return 0, ErrInvalidLength
 	}
 }
 
@@ -60,7 +59,7 @@ func (o *OpaqueValue) Boolean() (val bool, err error) {
 	} else if bytes.Equal([]byte{0x00}, o.Value) {
 		return false, nil
 	}
-	return false, errors.New("not a boolean representation")
+	return false, ErrNotBoolean
 }
 
 func (o *OpaqueValue) Opaque() []byte {
@@ -73,13 +72,13 @@ func (o *OpaqueValue) Time() (int64, error) {
 	} else if len(o.Value) == 8 {
 		return int64(binary.BigEndian.Uint64(o.Value)), nil
 	} else {
-		return 0, ErrTlvInvalidLength
+		return 0, ErrInvalidLength
 	}
 }
 
 func (o *OpaqueValue) ObjectLink() (uint16, uint16, error) {
 	if len(o.Value) != 4 {
-		return 0, 0, ErrTlvInvalidLength
+		return 0, 0, ErrInvalidLength
 	}
 	_ = o.Value[3]
 	return uint16(o.Value[0])*256 + uint16(o.Value[1]),

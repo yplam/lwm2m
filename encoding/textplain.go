@@ -31,7 +31,7 @@ func (p *PlainTextValue) Boolean() (val bool, err error) {
 	} else if string(p.Value) == "0" {
 		return false, nil
 	}
-	return false, errors.New("not a boolean representation")
+	return false, ErrNotBoolean
 }
 
 func (p *PlainTextValue) Opaque() []byte {
@@ -135,7 +135,7 @@ func NewPlainTextValue(val any) (*PlainTextValue, error) {
 	case bool:
 		err = pt.fromBool(val.(bool))
 	default:
-		err = errors.New("unknown type")
+		err = ErrUnknownType
 	}
 	if err != nil {
 		return nil, err
