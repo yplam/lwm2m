@@ -132,13 +132,11 @@ func (h *Handler) handleUpdate(w mux.ResponseWriter, r *mux.Message, id string) 
 }
 
 func (h *Handler) handleDelete(w mux.ResponseWriter, r *mux.Message, id string) {
-	d, err := h.manager.GetDevice(id)
-	if err != nil || d == nil {
+	if err := h.manager.Deregister(id); err == nil {
+		_ = w.SetResponse(codes.Deleted, message.TextPlain, nil)
+	} else {
 		_ = w.SetResponse(codes.NotFound, message.TextPlain, nil)
-		return
 	}
-	_ = w.SetResponse(codes.Deleted, message.TextPlain, nil)
-	_ = h.manager.Deregister(d.Id)
 }
 
 func EnableHandler(r *mux.Router, m core.Manager, opts ...Option) {
