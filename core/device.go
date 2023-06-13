@@ -389,7 +389,7 @@ func (d *Device) Delete(ctx context.Context, p node.Path) error {
 	if !p.IsObjectInstance() {
 		return node.ErrPathInvalidValue
 	}
-	resp, err := d.conn.Delete(ctx, p.String(), _acceptOption())
+	resp, err := d.conn.Delete(ctx, p.String(), d.acceptOption)
 	if err != nil {
 		return err
 	}
