@@ -288,6 +288,7 @@ func (d *manager) Register(req *RegisterRequest, links []*encoding.CoreLink, con
 		Manager:     d,
 		obsChan:     make(chan observationEvent, 10),
 	}
+	dev.SetMediaTypes(DefaultMediaType, DefaultMediaType)
 	if links != nil && len(links) > 0 {
 		dev.ParseCoreLinks(links)
 	}

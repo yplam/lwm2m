@@ -45,6 +45,33 @@ func DecodeMessage(basePath Path, msg *pool.Message) (nodes []Node, err error) {
 			return
 		}
 		return decodeTLVMessage(basePath, tlvs)
+	case message.TextPlain:
+		if !basePath.IsResource() {
+			return nil, errors.New("only resource can be decoded from textplain content")
+		}
+		pt := encoding.NewPlainTextRaw(content)
+		if n, err := NewResource(basePath, false); err == nil {
+			if ri, err := NewResourceInstance(basePath, pt); err == nil {
+				n.SetInstance(ri)
+			}
+			nodes = append(nodes, n)
+		}
+		return nodes, nil
+	case message.AppOctets:
+		if !basePath.IsResource() {
+			return nil, errors.New("only resource can be decoded from opaque content")
+		}
+		om, err := encoding.NewOpaqueValue(content)
+		if err != nil {
+			return nil, err
+		}
+		if n, err := NewResource(basePath, false); err == nil {
+			if ri, err := NewResourceInstance(basePath, om); err == nil {
+				n.SetInstance(ri)
+			}
+			nodes = append(nodes, n)
+		}
+		return nodes, nil
 	default:
 		err = ErrContentFormatNotSupport
 		return
@@ -119,8 +146,63 @@ func EncodeMessage(t message.MediaType, node []Node) (io.ReadSeeker, error) {
 		}
 		c := encoding.EncodeTlv(tlvs)
 		return bytes.NewReader(c), nil
+	case message.TextPlain:
+		text, err := encodeTextMessage(node)
+		if err != nil {
+			return nil, err
+		}
+		return bytes.NewReader(text.Raw()), nil
+	case message.AppOctets:
+		om, err := encodeOpaqueMessage(node)
+		if err != nil {
+			return nil, err
+		}
+		return bytes.NewReader(om.Raw()), nil
 	}
 	return nil, ErrEmpty
+}
+
+func encodeTextMessage(node []Node) (*encoding.PlainTextValue, error) {
+	if len(node) != 1 {
+		return nil, errors.New("cannot encode multiple values as PlainText")
+	}
+	if rr, ok := node[0].(*Resource); ok {
+		if rr.InstanceCount() != 1 {
+			return nil, errors.New("only single resource can be encoded as plaintext")
+		}
+		ri, err := rr.GetInstance(0)
+		if err != nil {
+			return nil, err
+		}
+		vv := ri.Value()
+		pt, err := encoding.NewPlainTextValue(vv)
+		if err != nil {
+			return nil, err
+		}
+		return pt, nil
+	}
+	return nil, errors.New("only single resource can be encoded as plaintext")
+}
+
+func encodeOpaqueMessage(node []Node) (*encoding.OpaqueValue, error) {
+	if len(node) != 1 {
+		return nil, errors.New("cannot encode multiple values as opaque octet stream")
+	}
+	if rr, ok := node[0].(*Resource); ok {
+		if rr.InstanceCount() != 1 {
+			return nil, errors.New("only single resource can be encoded as octet stream")
+		}
+		ri, err := rr.GetInstance(0)
+		if err != nil {
+			return nil, err
+		}
+		om, err := encoding.NewOpaqueValue(ri.Value())
+		if err != nil {
+			return nil, err
+		}
+		return om, nil
+	}
+	return nil, errors.New("only single resource can be encoded as octet stream")
 }
 
 func encodeTLVMessage(nodes []Node) ([]*encoding.Tlv, error) {

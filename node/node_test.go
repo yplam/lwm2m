@@ -176,3 +176,247 @@ func TestDecodeMultipleInstanceObjectTLV(t *testing.T) {
 	assert.Equal(t, true, ok)
 	assert.Equal(t, true, res.isMultiple)
 }
+
+func decodePlainText(t *testing.T, str string) ([]Node, error) {
+	msg := pool.NewMessage(context.Background())
+	msg.SetContentFormat(message.TextPlain)
+	msg.SetBody(bytes.NewReader([]byte(str)))
+	return DecodeMessage(NewResourcePath(1, 0, 1), msg)
+}
+func TestDecodePlainText(t *testing.T) {
+
+	{ // payload #0
+		data := "0"
+		nn, err := decodePlainText(t, data)
+		assert.Nil(t, err)
+		assert.Len(t, nn, 1)
+		n := nn[0]
+		switch n.(type) {
+		case *Resource:
+			rr, _ := n.(*Resource)
+			bb, err := rr.Data().Boolean()
+			assert.Nil(t, err)
+			assert.False(t, bb)
+			ii, err := rr.Data().Integer()
+			assert.Nil(t, err)
+			assert.Equal(t, int64(0), ii)
+			ff, err := rr.Data().Float()
+			assert.Nil(t, err)
+			assert.Equal(t, float64(0.0), ff)
+			ss := rr.Data().StringVal()
+			assert.Equal(t, data, ss)
+			op := rr.Data().Opaque()
+			assert.Nil(t, op)
+		default:
+			t.Fatal("not Resource")
+		}
+	}
+
+	{ // payload #1
+		data := "11.10"
+		nn, err := decodePlainText(t, data)
+		assert.Nil(t, err)
+		assert.Len(t, nn, 1)
+		n := nn[0]
+		switch n.(type) {
+		case *Resource:
+			rr, _ := n.(*Resource)
+			_, err = rr.Data().Boolean()
+			assert.NotNil(t, err)
+			_, err = rr.Data().Integer()
+			assert.NotNil(t, err)
+			ff, err := rr.Data().Float()
+			assert.Nil(t, err)
+			assert.Equal(t, float64(11.1), ff)
+			ss := rr.Data().StringVal()
+			assert.Equal(t, "11.10", ss)
+			op := rr.Data().Opaque()
+			assert.Nil(t, op)
+		default:
+			t.Fatal("not Resource")
+		}
+	}
+	{ // payload #2
+		data := "AQIDBA=="
+		nn, err := decodePlainText(t, data)
+		assert.Nil(t, err)
+		assert.Len(t, nn, 1)
+		n := nn[0]
+		switch n.(type) {
+		case *Resource:
+			rr, _ := n.(*Resource)
+			_, err = rr.Data().Boolean()
+			assert.NotNil(t, err)
+			_, err = rr.Data().Integer()
+			assert.NotNil(t, err)
+			_, err = rr.Data().Float()
+			assert.NotNil(t, err)
+			ss := rr.Data().StringVal()
+			assert.Equal(t, data, ss)
+			op := rr.Data().Opaque()
+			assert.True(t, bytes.Equal(op, []byte{0x01, 0x02, 0x03, 0x04}))
+		default:
+			t.Fatal("not Resource")
+		}
+	}
+	{ // payload #3
+		data := "1"
+		nn, err := decodePlainText(t, data)
+		assert.Nil(t, err)
+		assert.Len(t, nn, 1)
+		n := nn[0]
+		switch n.(type) {
+		case *Resource:
+			rr, _ := n.(*Resource)
+			bb, err := rr.Data().Boolean()
+			assert.Nil(t, err)
+			assert.True(t, bb)
+			ii, err := rr.Data().Integer()
+			assert.Nil(t, err)
+			assert.Equal(t, int64(1), ii)
+			ff, err := rr.Data().Float()
+			assert.Nil(t, err)
+			assert.Equal(t, 1.0, ff)
+			ss := rr.Data().StringVal()
+			assert.Equal(t, data, ss)
+			op := rr.Data().Opaque()
+			assert.Nil(t, op)
+		default:
+			t.Fatal("not Resource")
+		}
+	}
+	{ // payload #4
+		data := "hello friend"
+		nn, err := decodePlainText(t, data)
+		assert.Nil(t, err)
+		assert.Len(t, nn, 1)
+		n := nn[0]
+		switch n.(type) {
+		case *Resource:
+			rr, _ := n.(*Resource)
+			_, err = rr.Data().Boolean()
+			assert.NotNil(t, err)
+			_, err = rr.Data().Integer()
+			assert.NotNil(t, err)
+			_, err = rr.Data().Float()
+			assert.NotNil(t, err)
+			ss := rr.Data().StringVal()
+			assert.Equal(t, data, ss)
+			op := rr.Data().Opaque()
+			assert.Nil(t, op)
+		default:
+			t.Fatal("not Resource")
+		}
+	}
+}
+
+func decodeAppOctets(t *testing.T, data []byte) ([]Node, error) {
+	msg := pool.NewMessage(context.Background())
+	msg.SetContentFormat(message.AppOctets)
+	msg.SetBody(bytes.NewReader(data))
+	return DecodeMessage(NewResourcePath(1, 0, 1), msg)
+}
+func TestDecodeOpaque(t *testing.T) {
+
+	{ // payload #0
+		data := []byte{0x00}
+		nn, err := decodeAppOctets(t, data)
+		assert.Nil(t, err)
+		assert.Len(t, nn, 1)
+		n := nn[0]
+		switch n.(type) {
+		case *Resource:
+			rr, _ := n.(*Resource)
+			bb, err := rr.Data().Boolean()
+			assert.Nil(t, err)
+			assert.False(t, bb)
+			ii, err := rr.Data().Integer()
+			assert.Nil(t, err)
+			assert.Equal(t, int64(0), ii)
+			_, err = rr.Data().Float()
+			assert.NotNil(t, err)
+			ss := rr.Data().StringVal()
+			assert.Equal(t, string([]byte{0x00}), ss)
+			op := rr.Data().Opaque()
+			assert.NotNil(t, op)
+			assert.Equal(t, []byte{0x00}, op)
+		default:
+			t.Fatal("not Resource")
+		}
+	}
+
+	{ // payload #1
+		data := []byte{0x40, 0x09, 0x21, 0xd3, 0x3b, 0xe, 0x8c, 0x74}
+		nn, err := decodeAppOctets(t, data)
+		assert.Nil(t, err)
+		assert.Len(t, nn, 1)
+		n := nn[0]
+		switch n.(type) {
+		case *Resource:
+			rr, _ := n.(*Resource)
+			_, err := rr.Data().Boolean()
+			assert.NotNil(t, err)
+			ii, err := rr.Data().Integer()
+			assert.Nil(t, err)
+			assert.Equal(t, int64(4614256484330409076), ii)
+			ff, err := rr.Data().Float()
+			assert.Nil(t, err)
+			assert.Equal(t, float64(3.14151617181920), ff)
+			ss := rr.Data().StringVal()
+			assert.Equal(t, string([]byte{0x40, 0x09, 0x21, 0xd3, 0x3b, 0xe, 0x8c, 0x74}), ss)
+			op := rr.Data().Opaque()
+			assert.NotNil(t, op)
+			assert.Equal(t, []byte{0x40, 0x09, 0x21, 0xd3, 0x3b, 0xe, 0x8c, 0x74}, op)
+		default:
+			t.Fatal("not Resource")
+		}
+	}
+	{ // payload #2
+		data := "long long string dorem ipsum; once upon a time in a far away lands..."
+		nn, err := decodeAppOctets(t, []byte(data))
+		assert.Nil(t, err)
+		assert.Len(t, nn, 1)
+		n := nn[0]
+		switch n.(type) {
+		case *Resource:
+			rr, _ := n.(*Resource)
+			_, err = rr.Data().Boolean()
+			assert.NotNil(t, err)
+			_, err = rr.Data().Integer()
+			assert.NotNil(t, err)
+			_, err = rr.Data().Float()
+			assert.NotNil(t, err)
+			ss := rr.Data().StringVal()
+			assert.Equal(t, data, ss)
+			op := rr.Data().Opaque()
+			assert.True(t, bytes.Equal(op, []byte(data)))
+		default:
+			t.Fatal("not Resource")
+		}
+	}
+	{ // payload #3
+		data := "1"
+		nn, err := decodeAppOctets(t, []byte(data))
+		assert.Nil(t, err)
+		assert.Len(t, nn, 1)
+		n := nn[0]
+		switch n.(type) {
+		case *Resource:
+			rr, _ := n.(*Resource)
+			_, err = rr.Data().Boolean()
+			assert.NotNil(t, err)
+			ii, err := rr.Data().Integer()
+			assert.Nil(t, err)
+			assert.Equal(t, int64(49), ii)
+			_, err = rr.Data().Float()
+			assert.NotNil(t, err)
+			ss := rr.Data().StringVal()
+			assert.Equal(t, data, ss)
+			op := rr.Data().Opaque()
+			assert.NotNil(t, op)
+			assert.Equal(t, []byte{0x31}, op)
+		default:
+			t.Fatal("not Resource")
+		}
+	}
+}
