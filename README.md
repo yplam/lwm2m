@@ -14,10 +14,10 @@ A simple and lightweight ( but not full feature ) lwm2m server aim to run on edg
 - [ ] Device Management and Service Enablement interface.
   * [x] Read Operation, Read Resource, Read Object
   * [x] Write Operation, Write Resource, Write Object Instance
-  * [ ] Execute Operation
+  * [x] Execute Operation
   * [x] Discover Operation
-  * [ ] Create Operation
-  * [ ] Delete Operation
+  * [x] Create Operation
+  * [x] Delete Operation
   * [ ] Write-Attributes Operation
   * [ ] Read-Composite Operation
   * [ ] Write-Composite Operation
@@ -37,14 +37,15 @@ A simple and lightweight ( but not full feature ) lwm2m server aim to run on edg
   * [ ] LwM2M JSON
 - [ ] Security
   * [ ] DTLS with Certificates
-  * [ ] DTLS with PSK
+  * [x] DTLS with PSK, only support DTLS 1.2
 - [x] Transport
   * [x] UDP transport support.
-  * [x] TCP transport support.(Not tested)
+  * [ ] TCP transport support.(Some features may not work properly)
 - [ ] Tested with clients
-  * [x] Leshan client: coap, coaps over udp
-  * [x] Anjay client running on ESP32: coap over udp
-  * [x] Anjay client running on Linux: coap, coaps over udp
+  * [x] Leshan client: coap, coaps + psk
+  * [x] Anjay client running on ESP32: coap
+  * [x] Anjay client running on Linux: coap, coaps + psk
+  * [x] Zephyr LWM2M client running on nrf52840 with w5500 ethernet: coap, coaps + psk
   * [ ] Zephyr LWM2M client running on nrf52840 with Openthread
 
 ## Installation
@@ -69,10 +70,11 @@ import (
 
 func main() {
   r := server.DefaultRouter()
-  m := core.DefaultManager()
-  registration.EnableHandler(r, m)
+  deviceManager := core.DefaultManager()
+  registration.EnableHandler(r, deviceManager)
   err := server.ListenAndServe(r,
-    server.EnableUDPListener("udp", ":5683"))
+    server.EnableUDPListener("udp", ":5683"),
+  )
   if err != nil {
     log.Printf("serve lwm2m with err: %v", err)
   }
@@ -95,6 +97,9 @@ anjay client
 ```shell
 # coap
 ./output/bin/demo --endpoint-name $(hostname) --server-uri coap://127.0.0.1:5683
+
+# coap + tcp
+./output/bin/demo --endpoint-name $(hostname) --server-uri coap+tcp://127.0.0.1:5685
 
 # coaps
 ./output/bin/demo --endpoint-name $(hostname) --server-uri coaps://127.0.0.1:5684 --security-mode psk --identity 666f6f --key 000102030405060708090a0b0c0d0e0f --ciphersuites 49320 --tls-version TLSv1.2

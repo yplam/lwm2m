@@ -20,7 +20,6 @@ func main() {
 	registration.EnableHandler(r, deviceManager)
 	err := server.ListenAndServe(r,
 		server.EnableUDPListener("udp", ":5683"),
-		server.EnableTCPListener("tcp", ":5685"),
 		server.EnableDTLSListener("udp", ":5684", PSKFromIdentity),
 	)
 	if err != nil {

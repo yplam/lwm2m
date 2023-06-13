@@ -1,6 +1,7 @@
 package core
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -351,11 +352,12 @@ func (d *Device) Discover(ctx context.Context, p node.Path) ([]*encoding.CoreLin
 	return links, nil
 }
 
-func (d *Device) Execute(ctx context.Context, p node.Path) error {
+func (d *Device) Execute(ctx context.Context, p node.Path, arguments string) error {
 	if !p.IsResource() {
 		return node.ErrPathInvalidValue
 	}
-	resp, err := d.conn.Post(ctx, p.String(), message.AppLwm2mTLV, nil)
+	// TextPlain indicates arguments type
+	resp, err := d.conn.Post(ctx, p.String(), message.TextPlain, bytes.NewReader([]byte(arguments)))
 	if err != nil {
 		return err
 	}
@@ -365,7 +367,7 @@ func (d *Device) Execute(ctx context.Context, p node.Path) error {
 	return nil
 }
 
-func (d *Device) Create(ctx context.Context, p node.Path, val *node.Object) error {
+func (d *Device) Create(ctx context.Context, p node.Path, val *node.ObjectInstance) error {
 	if !p.IsObject() {
 		return node.ErrPathInvalidValue
 	}
@@ -373,7 +375,7 @@ func (d *Device) Create(ctx context.Context, p node.Path, val *node.Object) erro
 	if err != nil {
 		return err
 	}
-	resp, err := d.conn.Post(ctx, p.String(), d.writeMediaType, msg)
+	resp, err := d.conn.Post(ctx, p.String(), d.writeMediaType, msg, d.acceptOption)
 	if err != nil {
 		return err
 	}
@@ -387,7 +389,7 @@ func (d *Device) Delete(ctx context.Context, p node.Path) error {
 	if !p.IsObjectInstance() {
 		return node.ErrPathInvalidValue
 	}
-	resp, err := d.conn.Delete(ctx, p.String())
+	resp, err := d.conn.Delete(ctx, p.String(), _acceptOption())
 	if err != nil {
 		return err
 	}
