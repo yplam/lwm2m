@@ -3,6 +3,7 @@ package encoding
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"math"
 )
 
@@ -53,11 +54,13 @@ func (o *OpaqueValue) Float() (float64, error) {
 }
 
 func (o *OpaqueValue) Boolean() (val bool, err error) {
-	if len(o.Value) != 1 {
-		return false, ErrTlvInvalidLength
+	// Represented as the ASCII value 0 or 1
+	if bytes.Equal([]byte{0x01}, o.Value) {
+		return true, nil
+	} else if bytes.Equal([]byte{0x00}, o.Value) {
+		return false, nil
 	}
-	val = o.Value[0] != 0
-	return val, nil
+	return false, errors.New("not a boolean representation")
 }
 
 func (o *OpaqueValue) Opaque() []byte {
@@ -87,7 +90,16 @@ func (o *OpaqueValue) Raw() []byte {
 	return o.Value
 }
 
-func NewOpaqueValue(val any) (*OpaqueValue, error) {
+func NewOpaqueValue(v any) (*OpaqueValue, error) {
+	var val any
+	switch v.(type) {
+	case int:
+		val = int64(v.(int))
+	case string:
+		val = []byte(v.(string))
+	default:
+		val = v
+	}
 	buf := new(bytes.Buffer)
 	err := binary.Write(buf, binary.BigEndian, val)
 	if err != nil {
