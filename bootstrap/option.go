@@ -1,8 +1,8 @@
 package bootstrap
 
 import (
-	"context"
 	"github.com/pion/logging"
+	"time"
 )
 
 type Option func(h *Handler)
@@ -13,8 +13,8 @@ func WithLogger(l logging.LeveledLogger) Option {
 	}
 }
 
-func WithParentContext(c context.Context) Option {
+func WithBootstrapTimeout(timeout time.Duration) Option {
 	return func(h *Handler) {
-		h.ctx = c
+		h.timeout = timeout
 	}
 }
