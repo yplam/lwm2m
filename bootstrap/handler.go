@@ -16,6 +16,8 @@ import (
 
 const DefaultBootstrapTimeout = 30 * time.Second
 
+var DefaultContentType = message.AppLwm2mTLV
+
 type Handler struct {
 	timeout  time.Duration
 	logger   logging.LeveledLogger
@@ -60,10 +62,12 @@ func (h *Handler) ServeCOAP(w mux.ResponseWriter, r *mux.Message) {
 	// select content type
 	switch pct {
 	case message.AppLwm2mTLV:
+	case message.TextPlain:
+	case message.AppOctets:
 	default:
-		err = fmt.Errorf("unsupported content type: %s", pct.String())
-		w.SetResponse(codes.BadRequest, message.TextPlain, bytes.NewReader([]byte(err.Error())))
-		return
+		h.logger.Debugf("client prefer unsupported(yet) content-type %s", pct.String())
+		h.logger.Debugf("using %s as default", DefaultContentType.String())
+		pct = DefaultContentType
 	}
 
 	client := &Client{
