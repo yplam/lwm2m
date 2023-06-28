@@ -189,7 +189,7 @@ func loadObjectDefinition(x []byte) (*ObjectDefinition, error) {
 		return nil, err
 	}
 	xo := xx.Object
-	if xo.ObjectID <= 0 {
+	if xo.ObjectID < 0 {
 		return nil, errors.New("no object definition found")
 	}
 	var res = make(map[uint16]*ResourceDefinition)

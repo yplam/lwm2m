@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	dtlsServer "github.com/plgd-dev/go-coap/v3/dtls/server"
+	"github.com/plgd-dev/go-coap/v3/mux"
 	"github.com/plgd-dev/go-coap/v3/net/monitor/inactivity"
 	"github.com/plgd-dev/go-coap/v3/options"
 	tcpClient "github.com/plgd-dev/go-coap/v3/tcp/client"
@@ -102,6 +103,10 @@ const lifetimeCtxKey lifetimeCtxKeyType = "core_lifetime"
 
 func WithLifetime(ctx context.Context, lifetime time.Duration) context.Context {
 	return context.WithValue(ctx, lifetimeCtxKey, lifetime)
+}
+
+func SetLifetime(c mux.Conn, d time.Duration) {
+	c.SetContextValue(lifetimeCtxKey, d)
 }
 
 func GetLifetime(ctx context.Context) *time.Duration {
