@@ -93,8 +93,8 @@ func decodeTLVMessage(p Path, tlvs []*encoding.Tlv) ([]Node, error) {
 				curObjInstanceId += 1
 				if nn, err := decodeTLVMessage(p, item.Children); err == nil {
 					for _, v := range nn {
-						if reflect.TypeOf(v).String() == "*node.Resource" {
-							n.Resources[v.ID()] = v.(*Resource)
+						if rr, ok := v.(*Resource); ok {
+							n.Resources[v.ID()] = rr
 						}
 					}
 
@@ -114,8 +114,8 @@ func decodeTLVMessage(p Path, tlvs []*encoding.Tlv) ([]Node, error) {
 			if n, err := NewResource(p, true); err == nil {
 				if nn, err := decodeTLVMessage(p, item.Children); err == nil {
 					for _, v := range nn {
-						if reflect.TypeOf(v).String() == "*node.ResourceInstance" {
-							n.SetInstance(v.(*ResourceInstance))
+						if ri, ok := v.(*ResourceInstance); ok {
+							n.SetInstance(ri)
 						}
 					}
 				} else {
@@ -209,8 +209,8 @@ func encodeOpaqueMessage(node []Node) (*encoding.OpaqueValue, error) {
 func encodeTLVMessage(nodes []Node) ([]*encoding.Tlv, error) {
 	tlvs := make([]*encoding.Tlv, 0)
 	for _, node := range nodes {
-		switch reflect.TypeOf(node).String() {
-		case "*node.Resource":
+		switch node.(type) {
+		case *Resource:
 			if n, okay := node.(*Resource); okay {
 				if n.isMultiple {
 					tlv := encoding.NewTlv(encoding.TlvMultipleResource, n.id, []byte{})
@@ -224,7 +224,7 @@ func encodeTLVMessage(nodes []Node) ([]*encoding.Tlv, error) {
 					tlvs = append(tlvs, tlv)
 				}
 			}
-		case "*node.Object":
+		case *Object:
 			if n, okay := node.(*Object); okay {
 				for _, oi := range n.Instances {
 					if eoi, err := encodeTLVMessage([]Node{oi}); err == nil {
@@ -232,7 +232,7 @@ func encodeTLVMessage(nodes []Node) ([]*encoding.Tlv, error) {
 					}
 				}
 			}
-		case "*node.ObjectInstance":
+		case *ObjectInstance:
 			if n, okay := node.(*ObjectInstance); okay {
 				tlv := encoding.NewTlv(encoding.TlvObjectInstance, n.Id, []byte{})
 				for _, ri := range n.Resources {
@@ -242,7 +242,7 @@ func encodeTLVMessage(nodes []Node) ([]*encoding.Tlv, error) {
 				}
 				tlvs = append(tlvs, tlv)
 			}
-		case "*node.ResourceInstance":
+		case *ResourceInstance:
 			if n, okay := node.(*ResourceInstance); okay {
 				tlv := encoding.NewTlv(encoding.TlvMultipleResourceItem, n.id, n.Data().Raw())
 				tlvs = append(tlvs, tlv)
@@ -256,8 +256,8 @@ func encodeTLVMessage(nodes []Node) ([]*encoding.Tlv, error) {
 func GetAllResources(nodes []Node, parentPath Path) (map[Path]*Resource, error) {
 	values := make(map[Path]*Resource)
 	for _, node := range nodes {
-		switch reflect.TypeOf(node).String() {
-		case "*node.Resource":
+		switch node.(type) {
+		case *Resource:
 			r, okay := node.(*Resource)
 			if !okay {
 				continue
@@ -266,7 +266,7 @@ func GetAllResources(nodes []Node, parentPath Path) (map[Path]*Resource, error) 
 				continue
 			}
 			values[r.path] = r
-		case "*node.Object":
+		case *Object:
 			if n, okay := node.(*Object); okay {
 				for _, oi := range n.Instances {
 					for _, or := range oi.Resources {
@@ -277,7 +277,7 @@ func GetAllResources(nodes []Node, parentPath Path) (map[Path]*Resource, error) 
 					}
 				}
 			}
-		case "*node.ObjectInstance":
+		case *ObjectInstance:
 			if n, okay := node.(*ObjectInstance); okay {
 				for _, or := range n.Resources {
 					if !or.path.IsChildOfOrEq(parentPath) {
@@ -308,8 +308,8 @@ func GetObjectByPath(nodes []Node, p Path) (o *Object, err error) {
 	}
 	o = NewObject(oid)
 	for _, node := range nodes {
-		switch reflect.TypeOf(node).String() {
-		case "*node.Object":
+		switch node.(type) {
+		case *Object:
 			if n, okay := node.(*Object); okay {
 				if oid != node.ID() {
 					continue
@@ -317,7 +317,7 @@ func GetObjectByPath(nodes []Node, p Path) (o *Object, err error) {
 				o = n
 				return
 			}
-		case "*node.ObjectInstance":
+		case *ObjectInstance:
 			if n, okay := node.(*ObjectInstance); okay {
 				o.Instances[n.ID()] = n
 			}
@@ -352,8 +352,8 @@ func GetResourceByPath(nodes []Node, p Path) (r *Resource, err error) {
 		return
 	}
 	for _, node := range nodes {
-		switch reflect.TypeOf(node).String() {
-		case "*node.Resource":
+		switch node.(type) {
+		case *Resource:
 			if n, okay := node.(*Resource); okay {
 				if rid != node.ID() {
 					continue
@@ -361,7 +361,7 @@ func GetResourceByPath(nodes []Node, p Path) (r *Resource, err error) {
 				r = n
 				return
 			}
-		case "*node.Object":
+		case *Object:
 			if n, okay := node.(*Object); okay {
 				if oid != node.ID() {
 					continue
@@ -377,7 +377,7 @@ func GetResourceByPath(nodes []Node, p Path) (r *Resource, err error) {
 				r = ri
 				return
 			}
-		case "*node.ObjectInstance":
+		case *ObjectInstance:
 			if n, okay := node.(*ObjectInstance); okay {
 				if iid != node.ID() {
 					continue
